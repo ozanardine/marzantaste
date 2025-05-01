@@ -191,6 +191,22 @@ const AdminProducts: React.FC = () => {
             .eq('id', updatedImages[i].id);
         }
         
+        // Atualizar a imagem principal do produto
+        if (updatedImages.length > 0) {
+          const { error: mainImageError } = await supabase
+            .from('products')
+            .update({ image_url: updatedImages[0].image_url })
+            .eq('id', editingProduct.id);
+            
+          if (mainImageError) throw mainImageError;
+          
+          // Atualizar também no formData atual
+          setFormData({
+            ...formData,
+            image_url: updatedImages[0].image_url
+          });
+        }
+        
         toast.success('Ordem das imagens atualizada');
       } catch (error) {
         console.error('Erro ao atualizar ordem das imagens:', error);
@@ -212,11 +228,45 @@ const AdminProducts: React.FC = () => {
           .eq('id', imageId);
 
         if (error) throw error;
+        
+        // Buscar as imagens atualizadas
         await fetchProductImages(editingProduct.id);
+        
+        // Se removemos a imagem principal (index 0), precisamos atualizar a imagem principal do produto
+        if (index === 0) {
+          // Verificar se ainda existem imagens
+          if (productImages.length > 1) {
+            // Há outras imagens, usamos a nova primeira imagem como principal
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ 
+                image_url: productImages
+                  .filter(img => img.id !== imageId)[0].image_url 
+              })
+              .eq('id', editingProduct.id);
+            
+            if (updateError) throw updateError;
+            
+            // Atualizar o formData também
+            setFormData({
+              ...formData,
+              image_url: productImages.filter(img => img.id !== imageId)[0].image_url
+            });
+          }
+        }
       } else {
+        // Para novos produtos que ainda não foram salvos
         const newImages = [...productImages];
         newImages.splice(index, 1);
         setProductImages(newImages.map((img, idx) => ({ ...img, display_order: idx })));
+        
+        // Se removemos a imagem principal, atualizar formData
+        if (index === 0 && newImages.length > 0) {
+          setFormData({
+            ...formData,
+            image_url: newImages[0].image_url
+          });
+        }
       }
 
       toast.success('Imagem excluída com sucesso');
@@ -235,6 +285,32 @@ const AdminProducts: React.FC = () => {
 
       if (error) throw error;
       setProducts(data || []);
+
+      // Agora vamos buscar as imagens principais para todos os produtos
+      await Promise.all((data || []).map(async (product) => {
+        try {
+          const { data: imageData, error: imageError } = await supabase
+            .from('product_images')
+            .select('*')
+            .eq('product_id', product.id)
+            .order('display_order')
+            .limit(1);
+
+          if (imageError) throw imageError;
+          
+          // Se encontrou uma imagem na galeria, atualiza a imagem principal do produto
+          if (imageData && imageData.length > 0) {
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ image_url: imageData[0].image_url })
+              .eq('id', product.id);
+              
+            if (updateError) throw updateError;
+          }
+        } catch (imgError) {
+          console.error(`Erro ao atualizar imagem principal do produto ${product.id}:`, imgError);
+        }
+      }));
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
       toast.error('Falha ao carregar produtos');

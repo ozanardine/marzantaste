@@ -48,16 +48,19 @@ const Products: React.FC = () => {
 
       if (error) throw error;
 
-      setProducts(data || []);
+      // Armazenar produtos primeiro
+      const productsList = data || [];
+      setProducts(productsList);
       
-      //Fetch images for all products
-      const imagesPromises = data?.map(product => fetchProductImages(product.id)) || [];
-      await Promise.all(imagesPromises);
+      // Buscar todas as imagens principais para cada produto  
+      await Promise.all(productsList.map(async (product) => {
+        await fetchProductImages(product.id);
+      }));
 
-      const uniqueCategories = [...new Set(data?.map(product => product.category) || [])];
+      const uniqueCategories = [...new Set(productsList.map(product => product.category) || [])];
       setCategories(uniqueCategories);
 
-      const uniqueTags = [...new Set(data?.flatMap(product => product.tags || []) || [])];
+      const uniqueTags = [...new Set(productsList.flatMap(product => product.tags || []) || [])];
       setAllTags(uniqueTags);
     } catch (error) {
       console.error('Erro ao buscar produtos:', error);
@@ -81,6 +84,20 @@ const Products: React.FC = () => {
       // Validação extra para garantir que a ordem está correta
       // Usamos o display_order para ordenar, mesmo que já venha ordenado do banco
       const sortedImages = data ? [...data].sort((a, b) => a.display_order - b.display_order) : [];
+      
+      // Verificar se a imagem principal no produto corresponde à primeira imagem da galeria
+      if (sortedImages.length > 0) {
+        // Verificar se a primeira imagem na ordem é diferente da imagem principal atual
+        const product = products.find(p => p.id === productId);
+        if (product && product.image_url !== sortedImages[0].image_url) {
+          console.log(`Atualizando imagem principal do produto ${productId} para corresponder à galeria`);
+          
+          // Atualizar o produto na memória
+          setProducts(prev => prev.map(p => 
+            p.id === productId ? {...p, image_url: sortedImages[0].image_url} : p
+          ));
+        }
+      }
       
       console.log(`Carregadas ${sortedImages.length} imagens para o produto ${productId}`);
       
