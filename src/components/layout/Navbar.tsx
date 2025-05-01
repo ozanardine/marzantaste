@@ -46,9 +46,6 @@ const Navbar: React.FC = () => {
                     <Link to="/admin/products" className="text-primary hover:text-caramel transition-colors px-3 py-2">
                       Gerenciar Produtos
                     </Link>
-                    <Link to="/admin/users" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                      Gerenciar Usuários
-                    </Link>
                   </>
                 )}
                 <button 
@@ -122,13 +119,6 @@ const Navbar: React.FC = () => {
                     onClick={closeMenu}
                   >
                     Gerenciar Produtos
-                  </Link>
-                  <Link 
-                    to="/admin/users" 
-                    className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
-                    onClick={closeMenu}
-                  >
-                    Gerenciar Usuários
                   </Link>
                 </>
               )}

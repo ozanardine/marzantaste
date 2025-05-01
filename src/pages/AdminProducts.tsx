@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { PlusCircle, Pencil, Trash2, X, Search, Tag, Upload, Loader2, GripHorizontal, Image as ImageIcon } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import logger from '../lib/logger';
 
 interface Product {
   id: string;
@@ -83,7 +84,7 @@ const AdminProducts: React.FC = () => {
       if (error) throw error;
       setProductImages(data || []);
     } catch (error) {
-      console.error('Erro ao buscar imagens do produto:', error);
+      logger.error('Erro ao buscar imagens do produto', error);
       toast.error('Falha ao carregar imagens do produto');
     }
   };
@@ -150,9 +151,8 @@ const AdminProducts: React.FC = () => {
 
       toast.success('Imagens enviadas com sucesso!');
     } catch (error) {
-      console.error('Erro ao enviar imagens:', error);
+      logger.error('Erro ao enviar imagens para o produto', error, true);
       toast.error('Falha ao enviar imagens');
-    } finally {
       setUploadingImage(false);
     }
   }
@@ -209,7 +209,7 @@ const AdminProducts: React.FC = () => {
         
         toast.success('Ordem das imagens atualizada');
       } catch (error) {
-        console.error('Erro ao atualizar ordem das imagens:', error);
+        logger.error('Erro ao atualizar ordem das imagens', error);
         toast.error('Falha ao atualizar ordem das imagens');
         // Reverter para a ordem anterior
         await fetchProductImages(editingProduct.id);
@@ -271,7 +271,7 @@ const AdminProducts: React.FC = () => {
 
       toast.success('Imagem excluída com sucesso');
     } catch (error) {
-      console.error('Erro ao excluir imagem:', error);
+      logger.error(`Erro ao excluir imagem ${imageId} do produto ${editingProduct?.id}`, error);
       toast.error('Falha ao excluir imagem');
     }
   };
@@ -308,11 +308,11 @@ const AdminProducts: React.FC = () => {
             if (updateError) throw updateError;
           }
         } catch (imgError) {
-          console.error(`Erro ao atualizar imagem principal do produto ${product.id}:`, imgError);
+          logger.error(`Erro ao atualizar imagem principal do produto ${product.id}`, imgError);
         }
       }));
     } catch (error) {
-      console.error('Erro ao buscar produtos:', error);
+      logger.error('Erro ao buscar produtos do catálogo', error);
       toast.error('Falha ao carregar produtos');
     } finally {
       setLoading(false);
@@ -371,7 +371,7 @@ const AdminProducts: React.FC = () => {
       fetchProducts();
       handleCloseModal();
     } catch (error) {
-      console.error('Erro ao salvar produto:', error);
+      logger.error('Erro ao salvar produto', error, true);
       toast.error('Falha ao salvar produto');
     }
   };
@@ -406,7 +406,7 @@ const AdminProducts: React.FC = () => {
       toast.success('Produto excluído com sucesso');
       fetchProducts();
     } catch (error) {
-      console.error('Erro ao excluir produto:', error);
+      logger.error(`Erro ao excluir produto ${id}`, error);
       toast.error('Falha ao excluir produto');
     }
   };
@@ -726,168 +726,4 @@ const AdminProducts: React.FC = () => {
                 <label className="label">Imagens do Produto *</label>
                 <div 
                   {...getRootProps()} 
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-                    ${uploadingImage ? 'border-primary/40 bg-primary/5' : 'border-primary/20 hover:border-primary/40 hover:bg-primary/5'}`}
-                >
-                  <input {...getInputProps()} />
-                  {uploadingImage ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                      <p className="mt-2 text-primary/70">Enviando imagens...</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Upload className="h-8 w-8 text-primary/40 mx-auto" />
-                      <p className="text-primary/70">
-                        Arraste e solte imagens aqui, ou clique para selecionar
-                      </p>
-                      <p className="text-xs text-primary/50">
-                        Formatos suportados: JPG, PNG, GIF (até 100 imagens)
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Galeria de Imagens */}
-                {productImages.length > 0 && (
-                  <div className="mt-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {productImages.map((image, index) => (
-                        <div
-                          key={image.id}
-                          className={`relative group border rounded-lg overflow-hidden
-                            ${draggingImageIndex === index ? 'opacity-50' : ''}
-                            ${dropTargetIndex === index ? 'border-primary' : 'border-gray-200'}`}
-                          draggable
-                          onDragStart={() => setDraggingImageIndex(index)}
-                          onDragEnd={() => {
-                            setDraggingImageIndex(null);
-                            setDropTargetIndex(null);
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            setDropTargetIndex(index);
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            if (draggingImageIndex !== null && dropTargetIndex !== null) {
-                              handleImageReorder(draggingImageIndex, dropTargetIndex);
-                            }
-                            setDraggingImageIndex(null);
-                            setDropTargetIndex(null);
-                          }}
-                        >
-                          <img
-                            src={image.image_url}
-                            alt={`Imagem do produto ${index + 1}`}
-                            className="w-full aspect-square object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              className="p-1 bg-white rounded-full text-primary hover:text-caramel transition-colors"
-                              title="Arraste para reordenar"
-                            >
-                              <GripHorizontal className="h-5 w-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleImageDelete(image.id, index)}
-                              className="p-1 bg-white rounded-full text-error hover:text-error/70 transition-colors"
-                              title="Excluir imagem"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </button>
-                          </div>
-                          {index === 0 && (
-                            <div className="absolute top-2 left-2 bg-primary/80 text-white text-xs px-2 py-1 rounded-full">
-                              Principal
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Tags</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {formData.tags.map(tag => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-2 text-primary/60 hover:text-primary"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    className="input flex-1"
-                    placeholder="Adicionar uma tag"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTag();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTag}
-                    className="btn-outline py-2 px-4"
-                  >
-                    <Tag className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="h-4 w-4 text-caramel focus:ring-caramel border-gray-300 rounded"
-                />
-                <label htmlFor="active" className="ml-2 block text-sm text-primary/70">
-                  Produto está ativo e visível no catálogo
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="btn-outline"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                >
-                  {editingProduct ? 'Atualizar Produto' : 'Adicionar Produto'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default AdminProducts;
+                  className={`

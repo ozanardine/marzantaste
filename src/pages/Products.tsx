@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { Search, Filter, ShoppingBag, X, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
+import logger from '../lib/logger';
 
 interface Product {
   id: string;
@@ -63,7 +64,7 @@ const Products: React.FC = () => {
       const uniqueTags = [...new Set(productsList.flatMap(product => product.tags || []) || [])];
       setAllTags(uniqueTags);
     } catch (error) {
-      console.error('Erro ao buscar produtos:', error);
+      logger.error('Erro ao buscar produtos', error);
       toast.error('Falha ao carregar produtos');
     } finally {
       setLoading(false);
@@ -90,7 +91,10 @@ const Products: React.FC = () => {
         // Verificar se a primeira imagem na ordem é diferente da imagem principal atual
         const product = products.find(p => p.id === productId);
         if (product && product.image_url !== sortedImages[0].image_url) {
-          console.log(`Atualizando imagem principal do produto ${productId} para corresponder à galeria`);
+          logger.info(`Atualizando imagem principal do produto ${productId}`, {
+            atual: product.image_url,
+            nova: sortedImages[0].image_url
+          });
           
           // Atualizar o produto na memória
           setProducts(prev => prev.map(p => 
@@ -99,7 +103,10 @@ const Products: React.FC = () => {
         }
       }
       
-      console.log(`Carregadas ${sortedImages.length} imagens para o produto ${productId}`);
+      logger.info(`Carregamento de imagens de produto concluído`, {
+        produtoId: productId,
+        qtdImagens: sortedImages.length
+      });
       
       // Atualizar o estado com as imagens ordenadas
       setProductImages(prev => ({
@@ -107,7 +114,7 @@ const Products: React.FC = () => {
         [productId]: sortedImages
       }));
     } catch (error) {
-      console.error('Erro ao buscar imagens do produto:', error);
+      logger.error(`Erro ao buscar imagens do produto ${productId}`, error);
     }
   };
 

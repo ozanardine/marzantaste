@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import ProgressTracker from '../components/ui/ProgressTracker';
 import RewardBadge from '../components/ui/RewardBadge';
-import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter } from 'lucide-react';
+import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter, User, Lock, Phone, MapPin } from 'lucide-react';
+import logger from '../lib/logger';
 
 interface Purchase {
   id: string;
@@ -27,6 +28,17 @@ interface LoyaltyCode {
   used_at: string;
 }
 
+interface UserProfile {
+  id?: string;
+  email?: string;
+  full_name: string;
+  phone?: string;
+  address?: string;
+  created_at?: string;
+  updated_at?: string;
+  is_admin?: boolean;
+}
+
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -34,10 +46,10 @@ const Dashboard: React.FC = () => {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [recentPurchases, setRecentPurchases] = useState<Purchase[]>([]);
   const [loyaltyCodes, setLoyaltyCodes] = useState<LoyaltyCode[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'add-purchase'>(() => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'add-purchase' | 'profile'>(() => {
     // Recuperar a aba ativa do localStorage ou usar 'dashboard' como padrão
     const savedTab = localStorage.getItem('activeTab');
-    return (savedTab as 'dashboard' | 'history' | 'add-purchase') || 'dashboard';
+    return (savedTab as 'dashboard' | 'history' | 'add-purchase' | 'profile') || 'dashboard';
   });
   
   // Salvar a aba ativa no localStorage sempre que ela mudar
@@ -53,6 +65,17 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
+  // Profile state
+  const [profile, setProfile] = useState<UserProfile>({
+    full_name: user?.user_metadata?.full_name || '',
+    phone: '',
+    address: '',
+  });
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
   // PurchaseHistory state
   const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
   const [filterDate, setFilterDate] = useState<'all' | 'month' | 'year'>('all');
@@ -60,6 +83,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchData();
+      fetchProfile();
     }
   }, [user]);
 
@@ -105,10 +129,108 @@ const Dashboard: React.FC = () => {
       setLoyaltyCodes(codeData || []);
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      logger.error('Erro ao carregar dados do usuário', error);
       toast.error('Falha ao carregar seus dados');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const fetchProfile = async () => {
+    try {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        setProfile({
+          id: data.id,
+          email: data.email,
+          full_name: data.full_name || user?.user_metadata?.full_name || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          is_admin: data.is_admin
+        });
+      }
+    } catch (error) {
+      logger.error('Erro ao buscar perfil do usuário', error);
+    }
+  };
+  
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    
+    try {
+      if (!user) return;
+      
+      // Atualizar os metadados do usuário no Supabase Auth
+      const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
+        data: { full_name: profile.full_name }
+      });
+      
+      if (authError) throw authError;
+      
+      // Atualizar o usuário na tabela users
+      const { error: userError } = await supabase
+        .from('users')
+        .update({
+          full_name: profile.full_name,
+          phone: profile.phone,
+          address: profile.address,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+      
+      if (userError) throw userError;
+      
+      toast.success('Perfil atualizado com sucesso!');
+    } catch (error) {
+      logger.error('Erro ao atualizar perfil', error);
+      toast.error('Erro ao atualizar perfil');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+  
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+      toast.error('As senhas não coincidem');
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({ 
+        password: newPassword 
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Senha atualizada com sucesso!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      logger.error('Erro ao atualizar senha', error);
+      toast.error('Erro ao atualizar senha');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -160,7 +282,7 @@ const Dashboard: React.FC = () => {
           // Refresh rewards
           fetchData();
         } catch (error) {
-          console.error('Erro ao criar recompensa:', error);
+          logger.error('Erro ao criar recompensa para usuário', error);
           toast.error('Falha ao criar sua recompensa');
         }
       }
@@ -260,7 +382,7 @@ const Dashboard: React.FC = () => {
         setIsSuccess(false);
       }, 3000);
     } catch (error) {
-      console.error('Erro ao adicionar compra:', error);
+      logger.error('Erro ao adicionar compra com código de fidelidade', error);
       toast.error('Falha ao adicionar compra');
     } finally {
       setIsLoading(false);
@@ -324,6 +446,18 @@ const Dashboard: React.FC = () => {
             >
               <Receipt className="w-5 h-5 mr-2" />
               Adicionar Compra
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                activeTab === 'profile'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-primary/60 hover:text-primary hover:border-primary/40'
+              }`}
+            >
+              <User className="w-5 h-5 mr-2" />
+              Meu Perfil
             </button>
           </nav>
         </div>
@@ -711,6 +845,177 @@ const Dashboard: React.FC = () => {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Profile Tab */}
+        {activeTab === 'profile' && (
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-10">
+              <h2 className="font-heading text-2xl font-bold text-primary mb-2">
+                Meus Dados
+              </h2>
+              <p className="text-primary/70">
+                Visualize e atualize suas informações pessoais
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              {/* Informações Pessoais */}
+              <div className="card p-6">
+                <h3 className="text-xl font-heading font-semibold text-primary mb-6 flex items-center">
+                  <User className="h-5 w-5 mr-2 text-caramel" />
+                  Informações Pessoais
+                </h3>
+                
+                <form onSubmit={handleProfileSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-primary/70 mb-1">
+                      E-mail
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="input bg-gray-100 cursor-not-allowed w-full"
+                    />
+                    <p className="mt-1 text-xs text-primary/60">
+                      O e-mail não pode ser alterado
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="fullName" className="block text-sm font-medium text-primary/70 mb-1">
+                      Nome Completo
+                    </label>
+                    <input
+                      type="text"
+                      id="fullName"
+                      value={profile.full_name}
+                      onChange={(e) => setProfile({...profile, full_name: e.target.value})}
+                      required
+                      className="input w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-primary/70 mb-1">
+                      Telefone/Celular
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Phone className="h-5 w-5 text-primary/40" />
+                      </div>
+                      <input
+                        type="tel"
+                        id="phone"
+                        value={profile.phone || ''}
+                        onChange={(e) => setProfile({...profile, phone: e.target.value})}
+                        placeholder="(00) 00000-0000"
+                        className="input pl-10 w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="address" className="block text-sm font-medium text-primary/70 mb-1">
+                      Endereço
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPin className="h-5 w-5 text-primary/40" />
+                      </div>
+                      <textarea
+                        id="address"
+                        value={profile.address || ''}
+                        onChange={(e) => setProfile({...profile, address: e.target.value})}
+                        placeholder="Rua, número, bairro, cidade, CEP"
+                        className="input pl-10 w-full h-24 resize-none"
+                      />
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="btn-primary w-full flex justify-center items-center"
+                  >
+                    {isSavingProfile ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    ) : (
+                      'Salvar Alterações'
+                    )}
+                  </button>
+                </form>
+              </div>
+              
+              {/* Segurança */}
+              <div className="card p-6">
+                <h3 className="text-xl font-heading font-semibold text-primary mb-6 flex items-center">
+                  <Lock className="h-5 w-5 mr-2 text-caramel" />
+                  Segurança
+                </h3>
+                
+                <form onSubmit={handlePasswordChange} className="space-y-6">
+                  <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-primary/70 mb-1">
+                      Nova Senha
+                    </label>
+                    <input
+                      type="password"
+                      id="newPassword"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="input w-full"
+                      placeholder="Digite sua nova senha"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-primary/70 mb-1">
+                      Confirmar Senha
+                    </label>
+                    <input
+                      type="password"
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="input w-full"
+                      placeholder="Confirme sua nova senha"
+                    />
+                  </div>
+                  
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="btn-primary w-full flex justify-center items-center"
+                    >
+                      {isChangingPassword ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      ) : (
+                        'Atualizar Senha'
+                      )}
+                    </button>
+                  </div>
+                </form>
+                
+                <div className="mt-6 border-t border-gray-100 pt-6">
+                  <h4 className="text-sm font-medium text-primary/70 mb-2">Dicas de Segurança</h4>
+                  <ul className="text-xs text-primary/60 space-y-1">
+                    <li>• Use senhas fortes com pelo menos 8 caracteres</li>
+                    <li>• Combine letras maiúsculas, minúsculas, números e símbolos</li>
+                    <li>• Não use a mesma senha em sites diferentes</li>
+                    <li>• Evite informações pessoais facilmente adivinháveis</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
         )}

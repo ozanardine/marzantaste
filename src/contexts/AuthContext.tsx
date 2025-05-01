@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
+import logger from '../lib/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -59,27 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('is_admin')
-        .eq('id', userId)
-        .maybeSingle();
+        .eq('user_id', userId)
+        .single();
 
       if (error) {
-        console.error('Error checking user role:', error);
-        setIsAdmin(false);
-        return;
+        logger.error('Erro ao verificar papel do usuário', error);
+        throw error;
       }
 
-      // If no data is returned, user doesn't exist in the users table
-      if (!data) {
-        setIsAdmin(false);
-        return;
-      }
-
-      setIsAdmin(data.is_admin || false);
+      return data?.is_admin || false;
     } catch (error) {
-      console.error('Unexpected error checking user role:', error);
-      setIsAdmin(false);
+      logger.error('Erro inesperado ao verificar papel do usuário', error);
+      return false;
     }
   };
 
@@ -99,25 +93,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Create user profile
       if (data.user) {
         const { error: profileError } = await supabase
-          .from('users')
-          .insert([
-            { 
-              id: data.user.id, 
-              email, 
-              full_name: fullName,
-              is_admin: false 
-            }
-          ]);
+          .from('profiles')
+          .insert([{ user_id: data.user.id, full_name: fullName }]);
 
         if (profileError) {
-          console.error('Error creating user profile:', profileError);
+          logger.error('Erro ao criar perfil do usuário', profileError);
           return { error: profileError };
         }
       }
 
       return { error };
     } catch (error) {
-      console.error('Error during sign up:', error);
+      logger.error('Erro durante o cadastro', error);
       return { error };
     }
   };
@@ -126,10 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error };
+      if (error) throw error;
+      return { success: true, error: null };
     } catch (error) {
-      console.error('Error during sign in:', error);
-      return { error };
+      logger.error('Erro durante o login', error);
+      return { success: false, error: error as Error };
     }
   };
 
@@ -142,10 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forgotPassword = async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email);
-      return { error };
+      if (error) throw error;
+      return { success: true, error: null };
     } catch (error) {
-      console.error('Error during password reset:', error);
-      return { error };
+      logger.error('Erro durante redefinição de senha', error);
+      return { success: false, error: error as Error };
     }
   };
 
