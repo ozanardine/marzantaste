@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Lock, Mail, User } from 'lucide-react';
+import { Lock, Mail, User, Phone } from 'lucide-react';
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password || !confirmPassword || !fullName) {
+    if (!email || !password || !confirmPassword || !fullName || !phone) {
       toast.error('Por favor, preencha todos os campos');
       return;
     }
@@ -34,7 +35,7 @@ const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(email, password, fullName);
+      const { error } = await signUp(email, password, fullName, phone);
       
       if (error) {
         toast.error(error.message || 'Falha ao criar conta');
@@ -81,6 +82,27 @@ const Register: React.FC = () => {
                   onChange={(e) => setFullName(e.target.value)}
                   className="input pl-10"
                   placeholder="João Silva"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label htmlFor="phone" className="label">
+                Celular
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-primary/40" />
+                </div>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="input pl-10"
+                  placeholder="(11) 99999-9999"
                 />
               </div>
             </div>

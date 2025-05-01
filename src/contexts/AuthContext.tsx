@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any | null }>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: any | null }>;
   signIn: (email: string, password: string) => Promise<{ error: any | null }>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: any | null }>;
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Sign up with email and password
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({ 
         email, 
@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             full_name: fullName,
+            phone: phone
           }
         }
       });
@@ -94,7 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([{ user_id: data.user.id, full_name: fullName }]);
+          .insert([{ 
+            user_id: data.user.id, 
+            full_name: fullName,
+            phone: phone 
+          }]);
 
         if (profileError) {
           logger.error('Erro ao criar perfil do usuário', profileError);
