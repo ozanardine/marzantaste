@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Lock, Mail, User, Phone, MapPin, Home } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -125,18 +126,31 @@ const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const address = formatAddress();
-      const { error } = await signUp(email, password, fullName, phone, address);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone,
+            cep: cep,
+            street: street,
+            number: number,
+            complement: complement,
+            neighborhood: neighborhood,
+            city: city,
+            state: state,
+            address: formatAddress()
+          }
+        }
+      });
       
-      if (error) {
-        toast.error(error.message || 'Falha ao criar conta');
-      } else {
-        toast.success('Conta criada com sucesso! Você já pode entrar.');
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      console.error('Erro ao cadastrar:', error);
-      toast.error('Ocorreu um erro inesperado');
+      if (error) throw error;
+      
+      toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
+      navigate('/login');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao criar conta');
     } finally {
       setIsLoading(false);
     }

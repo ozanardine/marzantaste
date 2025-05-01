@@ -322,41 +322,28 @@ const Dashboard: React.FC = () => {
   
   const fetchProfile = async () => {
     try {
-      if (!user) return;
-      
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
-        
+      
       if (error) throw error;
       
-      if (data) {
-        // Extrair campos de endereço do endereço completo
-        const { cep, number, complement } = parseAddress(data.address || '');
-        
+      // Se temos apenas o endereço completo e não os campos individuais
+      if (data.address && (!data.street || !data.city)) {
+        const parsedAddress = parseAddress(data.address);
         setProfile({
-          id: data.id,
-          email: data.email,
-          full_name: data.full_name || user?.user_metadata?.full_name || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          cep: cep,
-          number: number,
-          complement: complement,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          is_admin: data.is_admin
+          ...data,
+          ...parsedAddress
         });
-        
-        // Tenta buscar informações do CEP se disponível
-        if (cep && cep.replace(/\D/g, '').length === 8) {
-          fetchAddressByCep(cep);
-        }
+      } else {
+        setProfile(data);
       }
-    } catch (error) {
-      logger.error('Erro ao buscar perfil do usuário', error);
+      
+    } catch (error: any) {
+      toast.error('Erro ao carregar perfil');
+      logger.error('Erro ao carregar perfil', error);
     }
   };
   
@@ -365,39 +352,40 @@ const Dashboard: React.FC = () => {
     setIsSavingProfile(true);
     
     try {
-      if (!user) return;
+      // Validar dados
+      if (!profile.full_name) {
+        throw new Error('O nome é obrigatório');
+      }
       
-      // Atualizar os metadados do usuário no Supabase Auth
-      const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
-        data: { 
-          full_name: profile.full_name,
-          phone: profile.phone || '',
-          address: profile.address
-        }
-      });
+      // Formatar endereço completo para compatibilidade
+      const formattedAddress = formatAddress();
       
-      if (authError) throw authError;
-      
-      // Atualizar o usuário na tabela users - sem o campo complement que não existe na tabela
-      const { error: userError } = await supabase
+      const { error } = await supabase
         .from('users')
         .update({
           full_name: profile.full_name,
-          phone: profile.phone || '',
-          address: profile.address,
+          phone: profile.phone,
+          cep: profile.cep,
+          street: profile.street,
+          number: profile.number,
+          complement: profile.complement,
+          neighborhood: profile.neighborhood,
+          city: profile.city,
+          state: profile.state,
+          address: formattedAddress,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
       
-      if (userError) throw userError;
+      if (error) throw error;
       
       toast.success('Perfil atualizado com sucesso!');
       
       // Recarregar os dados do perfil após a atualização
       await fetchProfile();
-    } catch (error) {
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao atualizar perfil');
       logger.error('Erro ao atualizar perfil', error);
-      toast.error('Erro ao atualizar perfil');
     } finally {
       setIsSavingProfile(false);
     }
