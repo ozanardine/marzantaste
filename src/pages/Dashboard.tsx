@@ -274,32 +274,46 @@ const Dashboard: React.FC = () => {
     const numberMatch = fullAddress.match(/n[ºo°\s]+(\d+)/i);
     const number = numberMatch ? numberMatch[1] : '';
     
-    // Tenta extrair complemento - capturando o texto completo entre "Complemento:" e a próxima vírgula
+    // Tenta extrair complemento de forma mais abrangente
     let complement = '';
-
-    // Tenta extrair texto entre 'Complemento:' e a próxima vírgula
-    const complementPrefixMatch = fullAddress.match(/Complemento:\s*([^,]+)/i);
+    
+    // Primeiro tenta extrair texto entre 'Complemento:' e a próxima vírgula ou fim da string
+    const complementPrefixMatch = fullAddress.match(/Complemento:\s*([^,]+(?:,[^,]+)*)/i);
+    
     if (complementPrefixMatch && complementPrefixMatch[1]) {
       complement = complementPrefixMatch[1].trim();
     } else {
-      // Procura por padrões comuns de complemento no endereço completo
+      // Divide o endereço por vírgulas e procura por padrões de complemento em cada parte
+      const addressParts = fullAddress.split(',');
+      const complementParts = [];
+      
+      // Padrões de complemento comuns
       const complementPatterns = [
-        /Apto\.?\s+[^,]+/i,
-        /Apartamento\s+[^,]+/i,
-        /Bloco\s+[^,]+/i,
-        /Casa\s+[^,]+/i,
-        /Sala\s+[^,]+/i,
-        /Conjunto\s+[^,]+/i,
-        /Loja\s+[^,]+/i
+        /apto\.?\s+\w+/i,
+        /apartamento\s+\w+/i,
+        /bloco\s+\w+/i,
+        /casa\s+\w+/i,
+        /sala\s+\w+/i,
+        /conjunto\s+\w+/i,
+        /loja\s+\w+/i,
+        /andar\s+\w+/i,
+        /\d+º\s+andar/i
       ];
       
-      // Testa cada padrão de complemento
-      for (const pattern of complementPatterns) {
-        const match = fullAddress.match(pattern);
-        if (match) {
-          complement = match[0].trim();
-          break;
+      // Procura por partes que correspondem a padrões de complemento
+      for (const part of addressParts) {
+        const trimmedPart = part.trim();
+        for (const pattern of complementPatterns) {
+          if (pattern.test(trimmedPart)) {
+            complementParts.push(trimmedPart);
+            break;
+          }
         }
+      }
+      
+      // Junta todas as partes de complemento encontradas
+      if (complementParts.length > 0) {
+        complement = complementParts.join(', ');
       }
     }
     
