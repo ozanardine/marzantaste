@@ -8,8 +8,6 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import PurchaseHistory from './pages/PurchaseHistory';
-import AddPurchase from './pages/AddPurchase';
 import AdminPanel from './pages/AdminPanel';
 import AdminProducts from './pages/AdminProducts';
 import Products from './pages/Products';
@@ -67,16 +65,6 @@ function App() {
                   <Dashboard />
                 </ProtectedRoute>
               } />
-              <Route path="/purchase-history" element={
-                <ProtectedRoute>
-                  <PurchaseHistory />
-                </ProtectedRoute>
-              } />
-              <Route path="/add-purchase" element={
-                <ProtectedRoute>
-                  <AddPurchase />
-                </ProtectedRoute>
-              } />
               <Route path="/admin" element={
                 <AdminRoute>
                   <AdminPanel />
@@ -89,6 +77,10 @@ function App() {
               } />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+              
+              {/* Redirecionamento das antigas rotas para o Dashboard */}
+              <Route path="/purchase-history" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/add-purchase" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </main>
           <Footer />

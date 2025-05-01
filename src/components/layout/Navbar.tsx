@@ -35,21 +35,19 @@ const Navbar: React.FC = () => {
             {user ? (
               <>
                 <Link to="/dashboard" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                  Painel
-                </Link>
-                <Link to="/purchase-history" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                  Histórico
-                </Link>
-                <Link to="/add-purchase" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                  Adicionar Compra
+                  Minha Conta
                 </Link>
                 {isAdmin && (
                   <>
+                    <div className="border-l border-gray-200 h-6 mx-2"></div>
                     <Link to="/admin" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                      Admin
+                      Administração
                     </Link>
                     <Link to="/admin/products" className="text-primary hover:text-caramel transition-colors px-3 py-2">
-                      Produtos
+                      Gerenciar Produtos
+                    </Link>
+                    <Link to="/admin/users" className="text-primary hover:text-caramel transition-colors px-3 py-2">
+                      Gerenciar Usuários
                     </Link>
                   </>
                 )}
@@ -103,37 +101,34 @@ const Navbar: React.FC = () => {
                 className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
                 onClick={closeMenu}
               >
-                Painel
-              </Link>
-              <Link 
-                to="/purchase-history" 
-                className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
-                onClick={closeMenu}
-              >
-                Histórico
-              </Link>
-              <Link 
-                to="/add-purchase" 
-                className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
-                onClick={closeMenu}
-              >
-                Adicionar Compra
+                Minha Conta
               </Link>
               {isAdmin && (
                 <>
+                  <div className="border-t border-gray-100 my-2"></div>
+                  <div className="px-3 py-1 text-xs font-medium text-primary/60 uppercase">
+                    Administração
+                  </div>
                   <Link 
                     to="/admin" 
                     className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
                     onClick={closeMenu}
                   >
-                    Admin
+                    Painel Admin
                   </Link>
                   <Link 
                     to="/admin/products" 
                     className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
                     onClick={closeMenu}
                   >
-                    Produtos
+                    Gerenciar Produtos
+                  </Link>
+                  <Link 
+                    to="/admin/users" 
+                    className="block px-3 py-2 text-primary hover:bg-cream rounded-md transition-colors"
+                    onClick={closeMenu}
+                  >
+                    Gerenciar Usuários
                   </Link>
                 </>
               )}
