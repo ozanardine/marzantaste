@@ -53,7 +53,7 @@ const AdminProducts: React.FC = () => {
   const [draggingImageIndex, setDraggingImageIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif']
     },
@@ -726,4 +726,27 @@ const AdminProducts: React.FC = () => {
                 <label className="label">Imagens do Produto *</label>
                 <div 
                   {...getRootProps()} 
-                  className={`
+                  className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors
+                    ${isDragActive ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-primary/50'}
+                  `}
+                >
+                  <input {...getInputProps()} />
+                  {isDragActive ? (
+                    <p className="text-primary">Solte as imagens aqui...</p>
+                  ) : (
+                    <div>
+                      <p className="text-primary/70 mb-2">Arraste imagens aqui ou clique para selecionar</p>
+                      <p className="text-xs text-primary/50">Formatos aceitos: JPG, PNG (máx. 5MB)</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminProducts;
