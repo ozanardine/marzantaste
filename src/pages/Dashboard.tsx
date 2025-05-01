@@ -274,22 +274,32 @@ const Dashboard: React.FC = () => {
     const numberMatch = fullAddress.match(/n[ºo°\s]+(\d+)/i);
     const number = numberMatch ? numberMatch[1] : '';
     
-    // Tenta extrair complemento
+    // Tenta extrair complemento - capturando o texto completo entre "Complemento:" e a próxima vírgula
     let complement = '';
-    const complementMatches = [
-      fullAddress.match(/Complemento:\s*([^,]+)/i),
-      fullAddress.match(/Apto\s+([^,]+)/i),
-      fullAddress.match(/Bloco\s+([^,]+)/i),
-      fullAddress.match(/Apartamento\s+([^,]+)/i),
-      fullAddress.match(/Casa\s+([^,]+)/i),
-      fullAddress.match(/Sala\s+([^,]+)/i)
-    ];
-    
-    // Pega o primeiro match que não é nulo
-    for (const match of complementMatches) {
-      if (match && match[1]) {
-        complement = match[1].trim();
-        break;
+
+    // Tenta extrair texto entre 'Complemento:' e a próxima vírgula
+    const complementPrefixMatch = fullAddress.match(/Complemento:\s*([^,]+)/i);
+    if (complementPrefixMatch && complementPrefixMatch[1]) {
+      complement = complementPrefixMatch[1].trim();
+    } else {
+      // Procura por padrões comuns de complemento no endereço completo
+      const complementPatterns = [
+        /Apto\.?\s+[^,]+/i,
+        /Apartamento\s+[^,]+/i,
+        /Bloco\s+[^,]+/i,
+        /Casa\s+[^,]+/i,
+        /Sala\s+[^,]+/i,
+        /Conjunto\s+[^,]+/i,
+        /Loja\s+[^,]+/i
+      ];
+      
+      // Testa cada padrão de complemento
+      for (const pattern of complementPatterns) {
+        const match = fullAddress.match(pattern);
+        if (match) {
+          complement = match[0].trim();
+          break;
+        }
       }
     }
     
