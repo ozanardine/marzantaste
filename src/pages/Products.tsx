@@ -60,8 +60,8 @@ const Products: React.FC = () => {
       const uniqueTags = [...new Set(data?.flatMap(product => product.tags || []) || [])];
       setAllTags(uniqueTags);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
+      console.error('Erro ao buscar produtos:', error);
+      toast.error('Falha ao carregar produtos');
     } finally {
       setLoading(false);
     }
@@ -69,20 +69,25 @@ const Products: React.FC = () => {
 
   const fetchProductImages = async (productId: string) => {
     try {
+      // Garantir que usamos .order('display_order') para manter a ordem definida no painel admin
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
         .eq('product_id', productId)
-        .order('display_order');
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
 
+      // Adicionar verificação para garantir que a ordem está correta
+      const sortedImages = [...(data || [])].sort((a, b) => a.display_order - b.display_order);
+      
+      // Atualizar o estado com as imagens ordenadas
       setProductImages(prev => ({
         ...prev,
-        [productId]: data || []
+        [productId]: sortedImages
       }));
     } catch (error) {
-      console.error('Error fetching product images:', error);
+      console.error('Erro ao buscar imagens do produto:', error);
     }
   };
 
@@ -279,7 +284,7 @@ const Products: React.FC = () => {
         )}
       </div>
 
-      {/* Product Modal */}
+      {/* Modal do Produto */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -292,7 +297,7 @@ const Products: React.FC = () => {
               </button>
               
               <div className="aspect-video relative overflow-hidden">
-                {/* Main Image */}
+                {/* Imagem Principal */}
                 <img
                   src={
                     productImages[selectedProduct.id]?.[currentImageIndex]?.image_url ||
@@ -302,7 +307,7 @@ const Products: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Navigation Arrows */}
+                {/* Setas de Navegação */}
                 {productImages[selectedProduct.id]?.length > 1 && (
                   <>
                     <button
@@ -333,7 +338,7 @@ const Products: React.FC = () => {
                 )}
               </div>
 
-              {/* Thumbnail Navigation */}
+              {/* Miniaturas de Navegação */}
               {productImages[selectedProduct.id]?.length > 1 && (
                 <div className="flex gap-2 p-4 overflow-x-auto">
                   {productImages[selectedProduct.id].map((image, index) => (
@@ -351,7 +356,7 @@ const Products: React.FC = () => {
                     >
                       <img
                         src={image.image_url}
-                        alt={`${selectedProduct.name} - Image ${index + 1}`}
+                        alt={`${selectedProduct.name} - Imagem ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
                     </button>

@@ -83,8 +83,8 @@ const AdminProducts: React.FC = () => {
       if (error) throw error;
       setProductImages(data || []);
     } catch (error) {
-      console.error('Error fetching product images:', error);
-      toast.error('Failed to load product images');
+      console.error('Erro ao buscar imagens do produto:', error);
+      toast.error('Falha ao carregar imagens do produto');
     }
   };
 
@@ -116,7 +116,7 @@ const AdminProducts: React.FC = () => {
       );
 
       if (editingProduct) {
-        // Add new images to existing product
+        // Adicionar novas imagens ao produto existente
         const { error } = await supabase
           .from('product_images')
           .insert(
@@ -130,13 +130,13 @@ const AdminProducts: React.FC = () => {
         if (error) throw error;
         await fetchProductImages(editingProduct.id);
       } else {
-        // Set first image as main product image
+        // Definir a primeira imagem como a imagem principal do produto
         setFormData(prev => ({
           ...prev,
           image_url: uploadedImages[0]
         }));
         
-        // Store remaining images to be added after product creation
+        // Armazenar as imagens restantes para serem adicionadas após a criação do produto
         setProductImages(
           uploadedImages.map((url, index) => ({
             id: `temp-${index}`,
@@ -148,10 +148,10 @@ const AdminProducts: React.FC = () => {
         );
       }
 
-      toast.success('Images uploaded successfully!');
+      toast.success('Imagens enviadas com sucesso!');
     } catch (error) {
-      console.error('Error uploading images:', error);
-      toast.error('Failed to upload images');
+      console.error('Erro ao enviar imagens:', error);
+      toast.error('Falha ao enviar imagens');
     } finally {
       setUploadingImage(false);
     }
@@ -164,7 +164,7 @@ const AdminProducts: React.FC = () => {
     const [draggedImage] = newImages.splice(dragIndex, 1);
     newImages.splice(dropIndex, 0, draggedImage);
 
-    // Update display order
+    // Atualizar a ordem de exibição
     const updatedImages = newImages.map((image, index) => ({
       ...image,
       display_order: index
@@ -174,28 +174,34 @@ const AdminProducts: React.FC = () => {
 
     if (editingProduct) {
       try {
-        // Update all images with new display orders
-        await Promise.all(
-          updatedImages.map(image =>
-            supabase
-              .from('product_images')
-              .update({ display_order: image.display_order })
-              .eq('id', image.id)
-          )
-        );
+        // Abordagem modificada para atualização de ordem
+        // Usar uma única chamada de banco de dados com UPSERT para garantir consistência
+        const imagesToUpdate = updatedImages.map(image => ({
+          id: image.id,
+          product_id: image.product_id,
+          image_url: image.image_url,
+          display_order: image.display_order
+        }));
+        
+        // Atualizar em lote com upsert para garantir que todas as ordens sejam atualizadas juntas
+        const { error } = await supabase
+          .from('product_images')
+          .upsert(imagesToUpdate, { onConflict: 'id' });
 
-        toast.success('Image order updated');
+        if (error) throw error;
+        
+        toast.success('Ordem das imagens atualizada');
       } catch (error) {
-        console.error('Error updating image order:', error);
-        toast.error('Failed to update image order');
-        // Revert to previous order
+        console.error('Erro ao atualizar ordem das imagens:', error);
+        toast.error('Falha ao atualizar ordem das imagens');
+        // Reverter para a ordem anterior
         await fetchProductImages(editingProduct.id);
       }
     }
   };
 
   const handleImageDelete = async (imageId: string, index: number) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!confirm('Tem certeza que deseja excluir esta imagem?')) return;
 
     try {
       if (editingProduct) {
@@ -212,10 +218,10 @@ const AdminProducts: React.FC = () => {
         setProductImages(newImages.map((img, idx) => ({ ...img, display_order: idx })));
       }
 
-      toast.success('Image deleted successfully');
+      toast.success('Imagem excluída com sucesso');
     } catch (error) {
-      console.error('Error deleting image:', error);
-      toast.error('Failed to delete image');
+      console.error('Erro ao excluir imagem:', error);
+      toast.error('Falha ao excluir imagem');
     }
   };
 
@@ -229,8 +235,8 @@ const AdminProducts: React.FC = () => {
       if (error) throw error;
       setProducts(data || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
+      console.error('Erro ao buscar produtos:', error);
+      toast.error('Falha ao carregar produtos');
     } finally {
       setLoading(false);
     }
@@ -240,7 +246,7 @@ const AdminProducts: React.FC = () => {
     e.preventDefault();
     
     if (!formData.name || !formData.price || !formData.image_url || !formData.category) {
-      toast.error('Please fill in all required fields');
+      toast.error('Por favor, preencha todos os campos obrigatórios');
       return;
     }
 
@@ -268,7 +274,7 @@ const AdminProducts: React.FC = () => {
 
         if (insertError) throw insertError;
 
-        // Insert additional images
+        // Inserir imagens adicionais
         if (productImages.length > 0) {
           const { error: imagesError } = await supabase
             .from('product_images')
@@ -284,12 +290,12 @@ const AdminProducts: React.FC = () => {
         }
       }
 
-      toast.success(editingProduct ? 'Product updated successfully' : 'Product added successfully');
+      toast.success(editingProduct ? 'Produto atualizado com sucesso' : 'Produto adicionado com sucesso');
       fetchProducts();
       handleCloseModal();
     } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error('Failed to save product');
+      console.error('Erro ao salvar produto:', error);
+      toast.error('Falha ao salvar produto');
     }
   };
 
@@ -310,7 +316,7 @@ const AdminProducts: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm('Tem certeza que deseja excluir este produto?')) return;
 
     try {
       const { error } = await supabase
@@ -320,11 +326,11 @@ const AdminProducts: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Product deleted successfully');
+      toast.success('Produto excluído com sucesso');
       fetchProducts();
     } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Failed to delete product');
+      console.error('Erro ao excluir produto:', error);
+      toast.error('Falha ao excluir produto');
     }
   };
 
@@ -388,10 +394,10 @@ const AdminProducts: React.FC = () => {
       <div className="min-h-[calc(100vh-64px)] bg-cream flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-3xl font-heading font-bold text-primary mb-4">
-            Access Denied
+            Acesso Negado
           </h1>
           <p className="text-primary/70">
-            You don't have permission to access this page.
+            Você não tem permissão para acessar esta página.
           </p>
         </div>
       </div>
@@ -404,10 +410,10 @@ const AdminProducts: React.FC = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="font-heading text-3xl font-bold text-primary">
-              Manage Products
+              Gerenciar Produtos
             </h1>
             <p className="text-primary/70 mt-2">
-              Add, edit, and manage your product catalog
+              Adicione, edite e gerencie seu catálogo de produtos
             </p>
           </div>
           <button
@@ -415,7 +421,7 @@ const AdminProducts: React.FC = () => {
             className="btn-primary flex items-center"
           >
             <PlusCircle className="w-5 h-5 mr-2" />
-            Add Product
+            Adicionar Produto
           </button>
         </div>
 
@@ -427,7 +433,7 @@ const AdminProducts: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search products..."
+                placeholder="Pesquisar produtos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input pl-10 w-full"
@@ -440,22 +446,22 @@ const AdminProducts: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
-                    Product
+                    Produto
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
-                    Category
+                    Categoria
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
-                    Price
+                    Preço
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
-                    Promo Price
+                    Preço Promo
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
                     Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary/70 uppercase tracking-wider">
-                    Actions
+                    Ações
                   </th>
                 </tr>
               </thead>
@@ -506,7 +512,7 @@ const AdminProducts: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`badge ${product.active ? 'badge-success' : 'badge-warning'}`}>
-                        {product.active ? 'Active' : 'Inactive'}
+                        {product.active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -533,13 +539,13 @@ const AdminProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* Product Modal */}
+      {/* Modal de Produto */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-heading font-semibold text-primary">
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
+                {editingProduct ? 'Editar Produto' : 'Adicionar Novo Produto'}
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -552,7 +558,7 @@ const AdminProducts: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="name" className="label">
-                  Product Name *
+                  Nome do Produto *
                 </label>
                 <input
                   type="text"
@@ -566,7 +572,7 @@ const AdminProducts: React.FC = () => {
 
               <div>
                 <label htmlFor="description" className="label">
-                  Description
+                  Descrição
                 </label>
                 <textarea
                   id="description"
@@ -580,7 +586,7 @@ const AdminProducts: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="price" className="label">
-                    Regular Price (R$) *
+                    Preço Regular (R$) *
                   </label>
                   <input
                     type="number"
@@ -596,7 +602,7 @@ const AdminProducts: React.FC = () => {
 
                 <div>
                   <label htmlFor="category" className="label">
-                    Category *
+                    Categoria *
                   </label>
                   <input
                     type="text"
@@ -612,7 +618,7 @@ const AdminProducts: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="promotional_price" className="label">
-                    Promotional Price (R$)
+                    Preço Promocional (R$)
                   </label>
                   <input
                     type="number"
@@ -627,7 +633,7 @@ const AdminProducts: React.FC = () => {
 
                 <div>
                   <label htmlFor="promotion_end_date" className="label">
-                    Promotion End Date
+                    Data de Término da Promoção
                   </label>
                   <input
                     type="datetime-local"
@@ -640,7 +646,7 @@ const AdminProducts: React.FC = () => {
               </div>
 
               <div>
-                <label className="label">Product Images *</label>
+                <label className="label">Imagens do Produto *</label>
                 <div 
                   {...getRootProps()} 
                   className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
@@ -650,22 +656,22 @@ const AdminProducts: React.FC = () => {
                   {uploadingImage ? (
                     <div className="flex flex-col items-center">
                       <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                      <p className="mt-2 text-primary/70">Uploading images...</p>
+                      <p className="mt-2 text-primary/70">Enviando imagens...</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <Upload className="h-8 w-8 text-primary/40 mx-auto" />
                       <p className="text-primary/70">
-                        Drag and drop images here, or click to select
+                        Arraste e solte imagens aqui, ou clique para selecionar
                       </p>
                       <p className="text-xs text-primary/50">
-                        Supported formats: JPG, PNG, GIF (up to 100 images)
+                        Formatos suportados: JPG, PNG, GIF (até 100 imagens)
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Image Gallery */}
+                {/* Galeria de Imagens */}
                 {productImages.length > 0 && (
                   <div className="mt-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -696,14 +702,14 @@ const AdminProducts: React.FC = () => {
                         >
                           <img
                             src={image.image_url}
-                            alt={`Product image ${index + 1}`}
+                            alt={`Imagem do produto ${index + 1}`}
                             className="w-full aspect-square object-cover"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button
                               type="button"
                               className="p-1 bg-white rounded-full text-primary hover:text-caramel transition-colors"
-                              title="Drag to reorder"
+                              title="Arraste para reordenar"
                             >
                               <GripHorizontal className="h-5 w-5" />
                             </button>
@@ -711,14 +717,14 @@ const AdminProducts: React.FC = () => {
                               type="button"
                               onClick={() => handleImageDelete(image.id, index)}
                               className="p-1 bg-white rounded-full text-error hover:text-error/70 transition-colors"
-                              title="Delete image"
+                              title="Excluir imagem"
                             >
                               <Trash2 className="h-5 w-5" />
                             </button>
                           </div>
                           {index === 0 && (
                             <div className="absolute top-2 left-2 bg-primary/80 text-white text-xs px-2 py-1 rounded-full">
-                              Main
+                              Principal
                             </div>
                           )}
                         </div>
@@ -753,7 +759,7 @@ const AdminProducts: React.FC = () => {
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     className="input flex-1"
-                    placeholder="Add a tag"
+                    placeholder="Adicionar uma tag"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -780,7 +786,7 @@ const AdminProducts: React.FC = () => {
                   className="h-4 w-4 text-caramel focus:ring-caramel border-gray-300 rounded"
                 />
                 <label htmlFor="active" className="ml-2 block text-sm text-primary/70">
-                  Product is active and visible in the catalog
+                  Produto está ativo e visível no catálogo
                 </label>
               </div>
 
@@ -790,13 +796,13 @@ const AdminProducts: React.FC = () => {
                   onClick={handleCloseModal}
                   className="btn-outline"
                 >
-                  Cancel
+                  Cancelar
                 </button>
                 <button
                   type="submit"
                   className="btn-primary"
                 >
-                  {editingProduct ? 'Update Product' : 'Add Product'}
+                  {editingProduct ? 'Atualizar Produto' : 'Adicionar Produto'}
                 </button>
               </div>
             </form>
