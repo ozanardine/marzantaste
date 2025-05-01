@@ -33,7 +33,19 @@ interface UserProfile {
   email?: string;
   full_name: string;
   phone?: string;
+  
+  // Campos detalhados de endereço
+  cep?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  
+  // Campo legado de endereço 
   address?: string;
+  
   created_at?: string;
   updated_at?: string;
   is_admin?: boolean;
@@ -69,8 +81,18 @@ const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile>({
     full_name: user?.user_metadata?.full_name || '',
     phone: '',
+    
+    cep: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    
     address: '',
   });
+  const [loadingCep, setLoadingCep] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -79,6 +101,104 @@ const Dashboard: React.FC = () => {
   // PurchaseHistory state
   const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
   const [filterDate, setFilterDate] = useState<'all' | 'month' | 'year'>('all');
+
+  // Função para formatar telefone
+  const formatPhone = (value: string) => {
+    // Remove tudo que não for número
+    let formatted = value.replace(/\D/g, '');
+    
+    // Limita a 11 dígitos (DDD + 9 dígitos para celular)
+    if (formatted.length > 11) {
+      formatted = formatted.slice(0, 11);
+    }
+    
+    // Formata conforme vai digitando
+    if (formatted.length > 0) {
+      formatted = `(${formatted.slice(0, 2)}${formatted.length > 2 ? ') ' : ''}${formatted.slice(2, 7)}${formatted.length > 7 ? '-' : ''}${formatted.slice(7, 11)}`;
+    }
+    
+    return formatted;
+  };
+
+  // Função para formatar CEP
+  const formatCep = (value: string) => {
+    // Remove tudo que não for número
+    let formatted = value.replace(/\D/g, '');
+    
+    // Limita a 8 dígitos
+    if (formatted.length > 8) {
+      formatted = formatted.slice(0, 8);
+    }
+    
+    // Formata com hífen
+    if (formatted.length > 5) {
+      formatted = `${formatted.slice(0, 5)}-${formatted.slice(5, 8)}`;
+    }
+    
+    return formatted;
+  };
+
+  // Função para buscar endereço pelo CEP
+  const fetchAddressByCep = async (cep: string) => {
+    if (cep.length < 8) return;
+    
+    try {
+      setLoadingCep(true);
+      const response = await fetch(`https://viacep.com.br/ws/${cep.replace(/\D/g, '')}/json/`);
+      const data = await response.json();
+      
+      if (data.erro) {
+        toast.error('CEP não encontrado');
+      } else {
+        setProfile(prev => ({
+          ...prev,
+          street: data.logradouro || prev.street,
+          neighborhood: data.bairro || prev.neighborhood,
+          city: data.localidade || prev.city,
+          state: data.uf || prev.state,
+        }));
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  // Função para lidar com alteração do CEP
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const formatted = formatCep(value);
+    setProfile(prev => ({ ...prev, cep: formatted }));
+    
+    // Busca CEP quando tiver 8 dígitos
+    if (formatted.replace(/\D/g, '').length === 8) {
+      fetchAddressByCep(formatted);
+    }
+  };
+
+  // Função para lidar com alteração do telefone
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const formatted = formatPhone(value);
+    setProfile(prev => ({ ...prev, phone: formatted }));
+  };
+
+  // Função para formatar endereço completo
+  const formatAddress = () => {
+    const { street, number, complement, neighborhood, city, state, cep } = profile;
+    
+    const addressParts = [
+      street,
+      number ? `nº ${number}` : '',
+      complement ? complement : '',
+      neighborhood,
+      city && state ? `${city}/${state}` : '',
+      cep ? `CEP ${cep}` : ''
+    ].filter(Boolean);
+    
+    return addressParts.join(', ');
+  };
 
   useEffect(() => {
     if (user) {
@@ -90,6 +210,14 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     filterPurchases();
   }, [purchases, filterDate]);
+
+  // Atualiza o campo de endereço legado quando os campos detalhados mudam
+  useEffect(() => {
+    if (profile.street || profile.city) {
+      const formattedAddress = formatAddress();
+      setProfile(prev => ({ ...prev, address: formattedAddress }));
+    }
+  }, [profile.street, profile.number, profile.complement, profile.neighborhood, profile.city, profile.state, profile.cep]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -136,6 +264,21 @@ const Dashboard: React.FC = () => {
     }
   };
   
+  // Função para extrair campos de endereço do endereço completo
+  const parseAddress = (fullAddress: string) => {
+    // Tenta extrair CEP
+    const cepMatch = fullAddress.match(/CEP[:\s]*(\d{5}-?\d{3})/i);
+    const cep = cepMatch ? cepMatch[1] : '';
+    
+    // Tenta extrair número
+    const numberMatch = fullAddress.match(/n[ºo°\s]+(\d+)/i);
+    const number = numberMatch ? numberMatch[1] : '';
+    
+    // Restante dos dados precisam de uma abordagem mais complexa,
+    // então retornamos apenas o CEP e número por enquanto
+    return { cep, number };
+  };
+  
   const fetchProfile = async () => {
     try {
       if (!user) return;
@@ -149,16 +292,26 @@ const Dashboard: React.FC = () => {
       if (error) throw error;
       
       if (data) {
+        // Extrair campos de endereço do endereço completo
+        const { cep, number } = parseAddress(data.address || '');
+        
         setProfile({
           id: data.id,
           email: data.email,
           full_name: data.full_name || user?.user_metadata?.full_name || '',
           phone: data.phone || '',
           address: data.address || '',
+          cep: cep,
+          number: number,
           created_at: data.created_at,
           updated_at: data.updated_at,
           is_admin: data.is_admin
         });
+        
+        // Tenta buscar informações do CEP se disponível
+        if (cep && cep.replace(/\D/g, '').length === 8) {
+          fetchAddressByCep(cep);
+        }
       }
     } catch (error) {
       logger.error('Erro ao buscar perfil do usuário', error);
@@ -912,28 +1065,135 @@ const Dashboard: React.FC = () => {
                         type="tel"
                         id="phone"
                         value={profile.phone || ''}
-                        onChange={(e) => setProfile({...profile, phone: e.target.value})}
+                        onChange={handlePhoneChange}
                         placeholder="(00) 00000-0000"
                         className="input pl-10 w-full"
+                        maxLength={16}
                       />
                     </div>
+                    <p className="mt-1 text-xs text-primary/60">
+                      Formato: (XX) XXXXX-XXXX
+                    </p>
                   </div>
                   
-                  <div>
-                    <label htmlFor="address" className="block text-sm font-medium text-primary/70 mb-1">
-                      Endereço
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <MapPin className="h-5 w-5 text-primary/40" />
+                  <div className="space-y-4 pt-4 border-t border-gray-100 mt-4">
+                    <h4 className="font-medium text-primary">Endereço</h4>
+                    
+                    <div>
+                      <label htmlFor="cep" className="block text-sm font-medium text-primary/70 mb-1">
+                        CEP
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <MapPin className="h-5 w-5 text-primary/40" />
+                        </div>
+                        <input
+                          type="text"
+                          id="cep"
+                          value={profile.cep || ''}
+                          onChange={handleCepChange}
+                          placeholder="00000-000"
+                          className="input pl-10 w-full"
+                          maxLength={9}
+                        />
+                        {loadingCep && (
+                          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                          </div>
+                        )}
                       </div>
-                      <textarea
-                        id="address"
-                        value={profile.address || ''}
-                        onChange={(e) => setProfile({...profile, address: e.target.value})}
-                        placeholder="Rua, número, bairro, cidade, CEP"
-                        className="input pl-10 w-full h-24 resize-none"
+                      <p className="mt-1 text-xs text-primary/60">
+                        Digite o CEP para autocompletar o endereço
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="street" className="block text-sm font-medium text-primary/70 mb-1">
+                        Rua
+                      </label>
+                      <input
+                        type="text"
+                        id="street"
+                        value={profile.street || ''}
+                        onChange={(e) => setProfile({...profile, street: e.target.value})}
+                        placeholder="Rua, Avenida, etc."
+                        className="input w-full"
                       />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="number" className="block text-sm font-medium text-primary/70 mb-1">
+                          Número
+                        </label>
+                        <input
+                          type="text"
+                          id="number"
+                          value={profile.number || ''}
+                          onChange={(e) => setProfile({...profile, number: e.target.value})}
+                          placeholder="123"
+                          className="input w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="complement" className="block text-sm font-medium text-primary/70 mb-1">
+                          Complemento
+                        </label>
+                        <input
+                          type="text"
+                          id="complement"
+                          value={profile.complement || ''}
+                          onChange={(e) => setProfile({...profile, complement: e.target.value})}
+                          placeholder="Apto, Bloco, etc."
+                          className="input w-full"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="neighborhood" className="block text-sm font-medium text-primary/70 mb-1">
+                        Bairro
+                      </label>
+                      <input
+                        type="text"
+                        id="neighborhood"
+                        value={profile.neighborhood || ''}
+                        onChange={(e) => setProfile({...profile, neighborhood: e.target.value})}
+                        placeholder="Bairro"
+                        className="input w-full"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="city" className="block text-sm font-medium text-primary/70 mb-1">
+                          Cidade
+                        </label>
+                        <input
+                          type="text"
+                          id="city"
+                          value={profile.city || ''}
+                          onChange={(e) => setProfile({...profile, city: e.target.value})}
+                          placeholder="Cidade"
+                          className="input w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="state" className="block text-sm font-medium text-primary/70 mb-1">
+                          Estado
+                        </label>
+                        <input
+                          type="text"
+                          id="state"
+                          value={profile.state || ''}
+                          onChange={(e) => setProfile({...profile, state: e.target.value})}
+                          placeholder="UF"
+                          className="input w-full"
+                          maxLength={2}
+                        />
+                      </div>
                     </div>
                   </div>
                   
