@@ -191,7 +191,7 @@ const Dashboard: React.FC = () => {
     const addressParts = [
       street,
       number ? `nº ${number}` : '',
-      complement ? complement : '',
+      complement ? `Complemento: ${complement}` : '',
       neighborhood,
       city && state ? `${city}/${state}` : '',
       cep ? `CEP ${cep}` : ''
@@ -274,9 +274,26 @@ const Dashboard: React.FC = () => {
     const numberMatch = fullAddress.match(/n[ºo°\s]+(\d+)/i);
     const number = numberMatch ? numberMatch[1] : '';
     
-    // Restante dos dados precisam de uma abordagem mais complexa,
-    // então retornamos apenas o CEP e número por enquanto
-    return { cep, number };
+    // Tenta extrair complemento
+    let complement = '';
+    const complementMatches = [
+      fullAddress.match(/Complemento:\s*([^,]+)/i),
+      fullAddress.match(/Apto\s+([^,]+)/i),
+      fullAddress.match(/Bloco\s+([^,]+)/i),
+      fullAddress.match(/Apartamento\s+([^,]+)/i),
+      fullAddress.match(/Casa\s+([^,]+)/i),
+      fullAddress.match(/Sala\s+([^,]+)/i)
+    ];
+    
+    // Pega o primeiro match que não é nulo
+    for (const match of complementMatches) {
+      if (match && match[1]) {
+        complement = match[1].trim();
+        break;
+      }
+    }
+    
+    return { cep, number, complement };
   };
   
   const fetchProfile = async () => {
@@ -293,7 +310,7 @@ const Dashboard: React.FC = () => {
       
       if (data) {
         // Extrair campos de endereço do endereço completo
-        const { cep, number } = parseAddress(data.address || '');
+        const { cep, number, complement } = parseAddress(data.address || '');
         
         setProfile({
           id: data.id,
@@ -303,6 +320,7 @@ const Dashboard: React.FC = () => {
           address: data.address || '',
           cep: cep,
           number: number,
+          complement: complement,
           created_at: data.created_at,
           updated_at: data.updated_at,
           is_admin: data.is_admin
@@ -336,14 +354,13 @@ const Dashboard: React.FC = () => {
       
       if (authError) throw authError;
       
-      // Atualizar o usuário na tabela users
+      // Atualizar o usuário na tabela users - sem o campo complement que não existe na tabela
       const { error: userError } = await supabase
         .from('users')
         .update({
           full_name: profile.full_name,
           phone: profile.phone || '',
           address: profile.address,
-          complement: profile.complement || '',
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
