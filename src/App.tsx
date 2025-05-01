@@ -13,6 +13,7 @@ import AdminProducts from './pages/AdminProducts';
 import Products from './pages/Products';
 import TermsOfService from './pages/TermsOfService';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import NotFound from './pages/NotFound';
 
 // ProtectedRoute component to handle authenticated routes
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -81,6 +82,9 @@ function App() {
               {/* Redirecionamento das antigas rotas para o Dashboard */}
               <Route path="/purchase-history" element={<Navigate to="/dashboard" replace />} />
               <Route path="/add-purchase" element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Rota 404 para páginas não encontradas */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
           <Footer />

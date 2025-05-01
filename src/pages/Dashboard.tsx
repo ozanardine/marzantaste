@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import ProgressTracker from '../components/ui/ProgressTracker';
 import RewardBadge from '../components/ui/RewardBadge';
-import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt } from 'lucide-react';
+import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter } from 'lucide-react';
 
 interface Purchase {
   id: string;
@@ -34,7 +34,16 @@ const Dashboard: React.FC = () => {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [recentPurchases, setRecentPurchases] = useState<Purchase[]>([]);
   const [loyaltyCodes, setLoyaltyCodes] = useState<LoyaltyCode[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'add-purchase'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'add-purchase'>(() => {
+    // Recuperar a aba ativa do localStorage ou usar 'dashboard' como padrão
+    const savedTab = localStorage.getItem('activeTab');
+    return (savedTab as 'dashboard' | 'history' | 'add-purchase') || 'dashboard';
+  });
+  
+  // Salvar a aba ativa no localStorage sempre que ela mudar
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
   
   // AddPurchase state
   const [loyaltyCode, setLoyaltyCode] = useState('');
