@@ -78,8 +78,11 @@ const Products: React.FC = () => {
 
       if (error) throw error;
 
-      // Adicionar verificação para garantir que a ordem está correta
-      const sortedImages = [...(data || [])].sort((a, b) => a.display_order - b.display_order);
+      // Validação extra para garantir que a ordem está correta
+      // Usamos o display_order para ordenar, mesmo que já venha ordenado do banco
+      const sortedImages = data ? [...data].sort((a, b) => a.display_order - b.display_order) : [];
+      
+      console.log(`Carregadas ${sortedImages.length} imagens para o produto ${productId}`);
       
       // Atualizar o estado com as imagens ordenadas
       setProductImages(prev => ({

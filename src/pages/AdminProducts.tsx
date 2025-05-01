@@ -174,21 +174,22 @@ const AdminProducts: React.FC = () => {
 
     if (editingProduct) {
       try {
-        // Abordagem modificada para atualização de ordem
-        // Usar uma única chamada de banco de dados com UPSERT para garantir consistência
-        const imagesToUpdate = updatedImages.map(image => ({
-          id: image.id,
-          product_id: image.product_id,
-          image_url: image.image_url,
-          display_order: image.display_order
-        }));
+        // Usar uma abordagem de atualização sequencial para evitar conflitos de chave única
+        // Primeiro, atribuir valores temporários negativos para evitar conflitos
+        for (let i = 0; i < updatedImages.length; i++) {
+          await supabase
+            .from('product_images')
+            .update({ display_order: -1000 - i })
+            .eq('id', updatedImages[i].id);
+        }
         
-        // Atualizar em lote com upsert para garantir que todas as ordens sejam atualizadas juntas
-        const { error } = await supabase
-          .from('product_images')
-          .upsert(imagesToUpdate, { onConflict: 'id' });
-
-        if (error) throw error;
+        // Depois, atribuir os valores finais
+        for (let i = 0; i < updatedImages.length; i++) {
+          await supabase
+            .from('product_images')
+            .update({ display_order: i })
+            .eq('id', updatedImages[i].id);
+        }
         
         toast.success('Ordem das imagens atualizada');
       } catch (error) {
