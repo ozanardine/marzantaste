@@ -211,14 +211,6 @@ const Dashboard: React.FC = () => {
     filterPurchases();
   }, [purchases, filterDate]);
 
-  // Atualiza o campo de endereço legado quando os campos detalhados mudam
-  useEffect(() => {
-    if (profile.street || profile.city) {
-      const formattedAddress = formatAddress();
-      setProfile(prev => ({ ...prev, address: formattedAddress }));
-    }
-  }, [profile.street, profile.number, profile.complement, profile.neighborhood, profile.city, profile.state, profile.cep]);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -357,9 +349,6 @@ const Dashboard: React.FC = () => {
         throw new Error('O nome é obrigatório');
       }
       
-      // Formatar endereço completo para compatibilidade
-      const formattedAddress = formatAddress();
-      
       const { error } = await supabase
         .from('users')
         .update({
@@ -372,7 +361,6 @@ const Dashboard: React.FC = () => {
           neighborhood: profile.neighborhood,
           city: profile.city,
           state: profile.state,
-          address: formattedAddress,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);

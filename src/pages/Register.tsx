@@ -139,8 +139,7 @@ const Register: React.FC = () => {
             complement: complement,
             neighborhood: neighborhood,
             city: city,
-            state: state,
-            address: formatAddress()
+            state: state
           }
         }
       });
