@@ -327,7 +327,11 @@ const Dashboard: React.FC = () => {
       
       // Atualizar os metadados do usuário no Supabase Auth
       const { data: authUpdate, error: authError } = await supabase.auth.updateUser({
-        data: { full_name: profile.full_name }
+        data: { 
+          full_name: profile.full_name,
+          phone: profile.phone || '',
+          address: profile.address
+        }
       });
       
       if (authError) throw authError;
@@ -337,8 +341,9 @@ const Dashboard: React.FC = () => {
         .from('users')
         .update({
           full_name: profile.full_name,
-          phone: profile.phone,
+          phone: profile.phone || '',
           address: profile.address,
+          complement: profile.complement || '',
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -346,6 +351,9 @@ const Dashboard: React.FC = () => {
       if (userError) throw userError;
       
       toast.success('Perfil atualizado com sucesso!');
+      
+      // Recarregar os dados do perfil após a atualização
+      await fetchProfile();
     } catch (error) {
       logger.error('Erro ao atualizar perfil', error);
       toast.error('Erro ao atualizar perfil');
