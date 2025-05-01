@@ -586,18 +586,6 @@ const Dashboard: React.FC = () => {
             </button>
             
             <button
-              onClick={() => setActiveTab('history')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
-                activeTab === 'history'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-primary/60 hover:text-primary hover:border-primary/40'
-              }`}
-            >
-              <History className="w-5 h-5 mr-2" />
-              Histórico de Compras
-            </button>
-            
-            <button
               onClick={() => setActiveTab('add-purchase')}
               className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
                 activeTab === 'add-purchase'
@@ -607,6 +595,18 @@ const Dashboard: React.FC = () => {
             >
               <Receipt className="w-5 h-5 mr-2" />
               Adicionar Compra
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center ${
+                activeTab === 'history'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-primary/60 hover:text-primary hover:border-primary/40'
+              }`}
+            >
+              <History className="w-5 h-5 mr-2" />
+              Histórico de Compras
             </button>
             
             <button
@@ -1012,7 +1012,7 @@ const Dashboard: React.FC = () => {
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl">
             <div className="mb-10">
               <h2 className="font-heading text-2xl font-bold text-primary mb-2">
                 Meus Dados
