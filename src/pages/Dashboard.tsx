@@ -418,9 +418,11 @@ const Dashboard: React.FC = () => {
       const purchaseDate = new Date(purchase.purchased_at);
       
       if (filterDate === 'month') {
+        // Compare só o mês e o ano, ignorando o dia e horas
         return purchaseDate.getMonth() === now.getMonth() &&
                purchaseDate.getFullYear() === now.getFullYear();
       } else if (filterDate === 'year') {
+        // Compare só o ano, ignorando o mês, dia e horas
         return purchaseDate.getFullYear() === now.getFullYear();
       }
       
@@ -446,7 +448,7 @@ const Dashboard: React.FC = () => {
               {
                 user_id: user?.id,
                 reward_type: 'Caixa Premium de Cookies',
-                expiry_date: expiryDate.toISOString(),
+                expiry_date: expiryDate.toISOString(), // ISO string sem manipulação adicional
               }
             ]);
 
@@ -520,7 +522,7 @@ const Dashboard: React.FC = () => {
         return;
       }
 
-      // Mark code as used
+      // Mark code as used (exatamente como no AdminPanel.tsx)
       const { error: updateError } = await supabase
         .from('loyalty_codes')
         .update({
@@ -531,7 +533,7 @@ const Dashboard: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // Create purchase record
+      // Create purchase record (preservando data selecionada pelo usuário)
       const { error: purchaseError } = await supabase
         .from('purchases')
         .insert([
@@ -539,7 +541,7 @@ const Dashboard: React.FC = () => {
             user_id: user?.id,
             transaction_id: loyaltyCode.toUpperCase(),
             amount: 0, // Amount not needed for loyalty codes
-            purchased_at: new Date(purchaseDate).toISOString(),
+            purchased_at: new Date(purchaseDate).toISOString(), // Sem manipulação de horas
             verified: true // Auto-verified since it's a valid loyalty code
           }
         ]);
