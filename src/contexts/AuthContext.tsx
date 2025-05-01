@@ -60,9 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('is_admin')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .single();
 
       if (error) {
@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
 
+      setIsAdmin(data?.is_admin || false);
       return data?.is_admin || false;
     } catch (error) {
       logger.error('Erro inesperado ao verificar papel do usuário', error);
@@ -91,21 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // Create user profile
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{ 
-            user_id: data.user.id, 
-            full_name: fullName,
-            phone: phone 
-          }]);
-
-        if (profileError) {
-          logger.error('Erro ao criar perfil do usuário', profileError);
-          return { error: profileError };
-        }
-      }
+      // O perfil do usuário é criado automaticamente pelo trigger handle_new_user
+      // Não precisamos inserir manualmente na tabela users
 
       return { error };
     } catch (error) {
