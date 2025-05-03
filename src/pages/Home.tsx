@@ -1,10 +1,139 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { CookieIcon, ShoppingBag, Award, Heart } from 'lucide-react';
+import { CookieIcon, ShoppingBag, Award, Heart, Star, Truck, Clock, Gift } from 'lucide-react';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
+
+  // Featured Products section
+  const FeaturedProducts = () => (
+    <section className="py-16 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <h2 className="font-heading text-3xl md:text-4xl font-bold text-primary mb-4">
+            Nossos Produtos Mais Amados
+          </h2>
+          <p className="text-lg text-primary/70 max-w-2xl mx-auto">
+            Descubra nossa seleção de cookies e chocolates artesanais, feitos com ingredientes selecionados e muito amor.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Cookie Box */}
+          <div className="card overflow-hidden group">
+            <div className="aspect-square relative overflow-hidden">
+              <img 
+                src="https://images.pexels.com/photos/230325/pexels-photo-230325.jpeg"
+                alt="Cookie Box Premium"
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute top-2 right-2 bg-accent text-white px-3 py-1 rounded-full text-sm font-medium">
+                Mais Vendido
+              </div>
+            </div>
+            <div className="p-6">
+              <h3 className="font-heading text-xl font-semibold text-primary mb-2">Cookie Box Premium</h3>
+              <p className="text-primary/70 mb-4">12 cookies artesanais sortidos em uma caixa elegante.</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xl font-bold text-primary">R$ 59,90</span>
+                <Link to="/products" className="btn-primary py-2">Ver Detalhes</Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Chocolate Truffles */}
+          <div className="card overflow-hidden group">
+            <div className="aspect-square relative overflow-hidden">
+              <img 
+                src="https://images.pexels.com/photos/65882/chocolate-dark-coffee-confiserie-65882.jpeg"
+                alt="Trufas Especiais"
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+            <div className="p-6">
+              <h3 className="font-heading text-xl font-semibold text-primary mb-2">Trufas Especiais</h3>
+              <p className="text-primary/70 mb-4">Caixa com 15 trufas artesanais em sabores exclusivos.</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xl font-bold text-primary">R$ 75,90</span>
+                <Link to="/products" className="btn-primary py-2">Ver Detalhes</Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Brownie Box */}
+          <div className="card overflow-hidden group">
+            <div className="aspect-square relative overflow-hidden">
+              <img 
+                src="https://images.pexels.com/photos/3026804/pexels-photo-3026804.jpeg"
+                alt="Brownie Box"
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+              />
+              <div className="absolute top-2 right-2 bg-success text-white px-3 py-1 rounded-full text-sm font-medium">
+                Novo
+              </div>
+            </div>
+            <div className="p-6">
+              <h3 className="font-heading text-xl font-semibold text-primary mb-2">Brownie Box</h3>
+              <p className="text-primary/70 mb-4">6 brownies recheados em uma caixa especial.</p>
+              <div className="flex justify-between items-center">
+                <span className="text-xl font-bold text-primary">R$ 45,90</span>
+                <Link to="/products" className="btn-primary py-2">Ver Detalhes</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center mt-12">
+          <Link to="/products" className="btn-primary inline-flex items-center">
+            <ShoppingBag className="w-5 h-5 mr-2" />
+            Ver Todos os Produtos
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+
+  // Features section
+  const Features = () => (
+    <section className="py-16 bg-cream">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="text-center">
+            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Star className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold text-primary mb-2">Qualidade Premium</h3>
+            <p className="text-primary/70">Ingredientes selecionados e receitas exclusivas</p>
+          </div>
+
+          <div className="text-center">
+            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Truck className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold text-primary mb-2">Entrega Rápida</h3>
+            <p className="text-primary/70">Entregamos em toda a cidade</p>
+          </div>
+
+          <div className="text-center">
+            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold text-primary mb-2">Sempre Fresquinho</h3>
+            <p className="text-primary/70">Produção diária e artesanal</p>
+          </div>
+
+          <div className="text-center">
+            <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Gift className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-heading text-lg font-semibold text-primary mb-2">Programa Fidelidade</h3>
+            <p className="text-primary/70">Ganhe recompensas a cada compra</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
   // Hero section with animated elements
   const HeroSection = () => (
@@ -15,26 +144,23 @@ const Home: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
+            <span className="inline-block bg-accent/20 text-accent px-4 py-2 rounded-full text-sm font-medium mb-6">
+              Doces Artesanais
+            </span>
             <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              Recompensas tão <span className="text-accent">Doces</span> quanto nossos Produtos
+              Cookies e Chocolates <span className="text-accent">Irresistíveis</span>
             </h1>
             <p className="text-lg md:text-xl mb-8 text-cream/90">
-              Participe do nosso programa de fidelidade e ganhe recompensas deliciosas a cada compra. Quanto mais você compra, mais doce fica!
+              Descubra o sabor único dos nossos doces artesanais e participe do nosso programa de fidelidade para ganhar recompensas deliciosas.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              {user ? (
-                <Link to="/dashboard" className="btn bg-accent text-primary hover:bg-accent/90 focus:ring-accent/70">
-                  Ver Minhas Recompensas
+              <Link to="/products" className="btn bg-accent text-primary hover:bg-accent/90 focus:ring-accent/70">
+                Ver Produtos
+              </Link>
+              {!user && (
+                <Link to="/register" className="btn border-2 border-cream text-cream hover:bg-cream/10 focus:ring-cream/30">
+                  Cadastrar
                 </Link>
-              ) : (
-                <>
-                  <Link to="/register" className="btn bg-accent text-primary hover:bg-accent/90 focus:ring-accent/70">
-                    Cadastrar Agora
-                  </Link>
-                  <Link to="/login" className="btn border-2 border-cream text-cream hover:bg-cream/10 focus:ring-cream/30">
-                    Entrar
-                  </Link>
-                </>
               )}
             </div>
           </div>
@@ -52,21 +178,20 @@ const Home: React.FC = () => {
     </section>
   );
 
-  // How it works section
-  const HowItWorksSection = () => (
-    <section className="py-16 bg-cream">
+  // Loyalty Program section
+  const LoyaltyProgram = () => (
+    <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="font-heading text-3xl md:text-4xl font-bold text-primary mb-4">
-            Como Funciona
+            Programa de Fidelidade
           </h2>
           <p className="text-lg text-primary/70 max-w-2xl mx-auto">
-            Nosso programa de fidelidade é simples, direto e deliciosamente recompensador.
+            A cada compra você está mais perto de ganhar recompensas deliciosas.
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Step 1 */}
           <div className="card flex flex-col items-center text-center p-8 hover:translate-y-[-4px]">
             <div className="bg-caramel/10 p-4 rounded-full mb-6">
               <ShoppingBag className="w-10 h-10 text-caramel" />
@@ -79,7 +204,6 @@ const Home: React.FC = () => {
             </p>
           </div>
           
-          {/* Step 2 */}
           <div className="card flex flex-col items-center text-center p-8 hover:translate-y-[-4px]">
             <div className="bg-secondary/10 p-4 rounded-full mb-6">
               <CookieIcon className="w-10 h-10 text-secondary" />
@@ -92,7 +216,6 @@ const Home: React.FC = () => {
             </p>
           </div>
           
-          {/* Step 3 */}
           <div className="card flex flex-col items-center text-center p-8 hover:translate-y-[-4px]">
             <div className="bg-accent/10 p-4 rounded-full mb-6">
               <Award className="w-10 h-10 text-accent" />
@@ -105,31 +228,24 @@ const Home: React.FC = () => {
             </p>
           </div>
         </div>
-        
-        <div className="mt-12 text-center">
-          <Link to={user ? "/dashboard" : "/register"} className="btn-primary">
-            {user ? "Ver Meu Progresso" : "Começar a Ganhar Recompensas"}
-          </Link>
-        </div>
       </div>
     </section>
   );
 
   // Testimonials section
   const TestimonialsSection = () => (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="font-heading text-3xl md:text-4xl font-bold text-primary mb-4">
             O que Nossos Clientes Dizem
           </h2>
           <p className="text-lg text-primary/70 max-w-2xl mx-auto">
-            Nossos clientes fiéis adoram nossos produtos e programa de recompensas.
+            A opinião de quem já experimentou nossas delícias.
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Testimonial 1 */}
           <div className="card p-8">
             <div className="flex items-center mb-4">
               <div className="bg-primary/10 h-12 w-12 rounded-full flex items-center justify-center">
@@ -141,7 +257,7 @@ const Home: React.FC = () => {
               </div>
             </div>
             <p className="text-primary/80 italic">
-              "O programa de fidelidade é incrível! Já ganhei três caixas de cookies grátis, e são absolutamente deliciosos. O aplicativo torna super fácil acompanhar minhas compras."
+              "Os cookies são simplesmente divinos! Já experimentei várias opções do cardápio e todas são incríveis. O programa de fidelidade então é um plus maravilhoso!"
             </p>
             <div className="mt-4 flex text-accent">
               {[...Array(5)].map((_, i) => (
@@ -150,7 +266,6 @@ const Home: React.FC = () => {
             </div>
           </div>
           
-          {/* Testimonial 2 */}
           <div className="card p-8">
             <div className="flex items-center mb-4">
               <div className="bg-primary/10 h-12 w-12 rounded-full flex items-center justify-center">
@@ -162,7 +277,7 @@ const Home: React.FC = () => {
               </div>
             </div>
             <p className="text-primary/80 italic">
-              "A seleção de chocolates é divina, e ganhar uma caixa grátis após minha 10ª compra torna tudo ainda mais doce. A equipe é sempre simpática e o programa de recompensas é super simples de usar."
+              "As trufas são de outro mundo! Cada sabor é uma experiência única. Sempre que posso, passo na loja para experimentar as novidades."
             </p>
             <div className="mt-4 flex text-accent">
               {[...Array(5)].map((_, i) => (
@@ -171,7 +286,6 @@ const Home: React.FC = () => {
             </div>
           </div>
           
-          {/* Testimonial 3 */}
           <div className="card p-8">
             <div className="flex items-center mb-4">
               <div className="bg-primary/10 h-12 w-12 rounded-full flex items-center justify-center">
@@ -183,7 +297,7 @@ const Home: React.FC = () => {
               </div>
             </div>
             <p className="text-primary/80 italic">
-              "Adoro acompanhar meu progresso no aplicativo e ver o quanto falta para minha próxima recompensa. Os cookies são os melhores da cidade, e o sistema de recompensas me faz sentir valorizada como cliente."
+              "Os brownies são irresistíveis! Sempre peço para entrega e chegam super fresquinhos. O atendimento é excelente e os preços são justos."
             </p>
             <div className="mt-4 flex text-accent">
               {[...Array(5)].map((_, i) => (
@@ -201,13 +315,16 @@ const Home: React.FC = () => {
     <section className="py-16 bg-gradient-to-r from-caramel/90 to-accent/90 text-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="font-heading text-3xl md:text-4xl font-bold mb-6">
-          Pronto para Ganhar Recompensas Doces?
+          Experimente Nossas Delícias
         </h2>
         <p className="text-lg mb-8 max-w-2xl mx-auto">
-          Participe do nosso programa de fidelidade hoje e comece a ganhar recompensas deliciosas a cada compra. É grátis para participar!
+          Faça seu pedido agora e comece a acumular pontos no nosso programa de fidelidade.
         </p>
-        <Link to={user ? "/dashboard" : "/register"} className="btn bg-cream text-primary hover:bg-cream/90 focus:ring-cream/30 text-lg px-8 py-4">
-          {user ? "Ver Minhas Recompensas" : "Participar Agora"}
+        <Link 
+          to={user ? "/products" : "/register"} 
+          className="btn bg-cream text-primary hover:bg-cream/90 focus:ring-cream/30 text-lg px-8 py-4"
+        >
+          {user ? "Ver Produtos" : "Cadastrar e Comprar"}
         </Link>
       </div>
     </section>
@@ -216,7 +333,9 @@ const Home: React.FC = () => {
   return (
     <div>
       <HeroSection />
-      <HowItWorksSection />
+      <Features />
+      <FeaturedProducts />
+      <LoyaltyProgram />
       <TestimonialsSection />
       <JoinCTA />
     </div>

@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import WhatsAppButton from './components/ui/WhatsAppButton';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -88,6 +89,7 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          <WhatsAppButton />
           <Toaster position="top-right" />
         </div>
       </Router>
@@ -95,4 +97,4 @@ function App() {
   );
 }
 
-export default App
+export default App;

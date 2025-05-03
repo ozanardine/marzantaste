@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import ProgressTracker from '../components/ui/ProgressTracker';
 import RewardBadge from '../components/ui/RewardBadge';
-import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter, User, Lock, Phone, MapPin } from 'lucide-react';
+import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter, User, Lock, Phone, MapPin, Eye, EyeOff, Check, X } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { formatDateToBR, getCurrentDateTime } from '../lib/dateUtils';
@@ -16,6 +16,7 @@ interface Purchase {
   transaction_id: string;
   amount: number;
   purchased_at: string;
+  verified: boolean;
 }
 
 interface Reward {
@@ -89,6 +90,16 @@ const Dashboard: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    number: false,
+    special: false,
+    uppercase: false,
+    lowercase: false,
+    match: false
+  });
   
   // PurchaseHistory state
   const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
@@ -104,6 +115,36 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     filterPurchases();
   }, [purchases, filterDate]);
+
+  const validatePassword = (password: string, confirmPass: string = '') => {
+    setPasswordValidation({
+      length: password.length >= 8,
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      match: password === confirmPass && password !== ''
+    });
+  };
+
+  const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPass = e.target.value;
+    setNewPassword(newPass);
+    validatePassword(newPass, confirmPassword);
+  };
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const confirmPass = e.target.value;
+    setConfirmPassword(confirmPass);
+    validatePassword(newPassword, confirmPass);
+  };
+
+  const ValidationItem = ({ valid, text }: { valid: boolean; text: string }) => (
+    <div className={`flex items-center gap-2 text-sm ${valid ? 'text-success' : 'text-primary/60'}`}>
+      {valid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+      {text}
+    </div>
+  );
 
   const fetchData = async () => {
     setLoading(true);
@@ -240,13 +281,8 @@ const Dashboard: React.FC = () => {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (newPassword !== confirmPassword) {
-      toast.error('As senhas não coincidem');
-      return;
-    }
-    
-    if (newPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    if (!Object.values(passwordValidation).every(Boolean)) {
+      toast.error('Por favor, atenda a todos os requisitos de senha');
       return;
     }
     
@@ -262,6 +298,14 @@ const Dashboard: React.FC = () => {
       toast.success('Senha atualizada com sucesso!');
       setNewPassword('');
       setConfirmPassword('');
+      setPasswordValidation({
+        length: false,
+        number: false,
+        special: false,
+        uppercase: false,
+        lowercase: false,
+        match: false
+      });
     } catch (error) {
       logger.error('Erro ao atualizar senha', error);
       toast.error('Erro ao atualizar senha');
@@ -596,19 +640,17 @@ const Dashboard: React.FC = () => {
                     </span>
                   </div>
                   
-                  {purchases.length > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="bg-accent/10 p-2 rounded-full mr-3">
-                          <Clock className="h-5 w-5 text-accent" />
-                        </div>
-                        <span className="text-primary/80">Membro Desde</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="bg-accent/10 p-2 rounded-full mr-3">
+                        <Clock className="h-5 w-5 text-accent" />
                       </div>
-                      <span className="font-medium text-primary">
-                        {formatDateToBR(purchases[purchases.length - 1].purchased_at)}
-                      </span>
+                      <span className="text-primary/80">Membro Desde</span>
                     </div>
-                  )}
+                    <span className="font-medium text-primary">
+                      {profile.created_at ? formatDateToBR(profile.created_at) : '-'}
+                    </span>
+                  </div>
                 </div>
               </div>
               
@@ -734,6 +776,7 @@ const Dashboard: React.FC = () => {
               )}
             </div>
             
+            
             {filteredPurchases.length > 0 && (
               <div className="mt-8 text-center text-primary/70">
                 <p>
@@ -772,6 +815,7 @@ const Dashboard: React.FC = () => {
                       className="btn-primary"
                     >
                       Adicionar Outra Compra
+                    
                     </button>
                     
                     <button
@@ -1038,7 +1082,7 @@ const Dashboard: React.FC = () => {
                           type="text"
                           id="state"
                           value={profile.state || ''}
-                          onChange={(e) => setProfile({...profile, state: e.target.value})}
+                          onChange={(e) => setState(e.target.value)}
                           placeholder="UF"
                           className="input w-full"
                           maxLength={2}
@@ -1069,41 +1113,79 @@ const Dashboard: React.FC = () => {
                 
                 <form onSubmit={handlePasswordChange} className="space-y-6">
                   <div>
-                    <label htmlFor="newPassword" className="block text-sm font-medium text-primary/70 mb-1">
-                      Nova Senha
+                    <label htmlFor="newPassword" className="label">
+                      Nova Senha <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      id="newPassword"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      className="input w-full"
-                      placeholder="Digite sua nova senha"
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-primary/40" />
+                      </div>
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        id="newPassword"
+                        value={newPassword}
+                        onChange={handleNewPasswordChange}
+                        className="input pl-10 pr-10"
+                        placeholder="Digite sua nova senha"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-primary/40 hover:text-primary transition-colors"
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   
                   <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-primary/70 mb-1">
-                      Confirmar Senha
+                    <label htmlFor="confirmPassword" className="label">
+                      Confirmar Senha <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      className="input w-full"
-                      placeholder="Confirme sua nova senha"
-                    />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Lock className="h-5 w-5 text-primary/40" />
+                      </div>
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        id="confirmPassword"
+                        value={confirmPassword}
+                        onChange={handleConfirmPasswordChange}
+                        className="input pl-10 pr-10"
+                        placeholder="Confirme sua nova senha"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-primary/40 hover:text-primary transition-colors"
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  
+
+                  <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                    <h4 className="text-sm font-medium text-primary mb-2">Requisitos de senha:</h4>
+                    <ValidationItem valid={passwordValidation.length} text="Mínimo de 8 caracteres" />
+                    <ValidationItem valid={passwordValidation.lowercase} text="Pelo menos uma letra minúscula" />
+                    <ValidationItem valid={passwordValidation.uppercase} text="Pelo menos uma letra maiúscula" />
+                    <ValidationItem valid={passwordValidation.number} text="Pelo menos um número" />
+                    <ValidationItem valid={passwordValidation.special} text="Pelo menos um caractere especial" />
+                    <ValidationItem valid={passwordValidation.match} text="As senhas coincidem" />
+                  </div>
+
                   <div className="pt-4">
                     <button
                       type="submit"
-                      disabled={isChangingPassword}
+                      disabled={isChangingPassword || !Object.values(passwordValidation).every(Boolean)}
                       className="btn-primary w-full flex justify-center items-center"
                     >
                       {isChangingPassword ? (
@@ -1114,16 +1196,6 @@ const Dashboard: React.FC = () => {
                     </button>
                   </div>
                 </form>
-                
-                <div className="mt-6 border-t border-gray-100 pt-6">
-                  <h4 className="text-sm font-medium text-primary/70 mb-2">Dicas de Segurança</h4>
-                  <ul className="text-xs text-primary/60 space-y-1">
-                    <li>• Use senhas fortes com pelo menos 8 caracteres</li>
-                    <li>• Combine letras maiúsculas, minúsculas, números e símbolos</li>
-                    <li>• Não use a mesma senha em sites diferentes</li>
-                    <li>• Evite informações pessoais facilmente adivinháveis</li>
-                  </ul>
-                </div>
               </div>
             </div>
           </div>

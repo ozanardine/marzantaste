@@ -1,6 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { CookieIcon, Facebook, Instagram, Twitter } from 'lucide-react';
+import { 
+  SiVisa, SiMastercard, SiAmericanexpress, SiPix,
+  SiDinersclub
+} from 'react-icons/si';
+import { FaTicketAlt, FaMoneyBillWave, FaCcDinersClub } from 'react-icons/fa';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -15,7 +20,8 @@ const Footer: React.FC = () => {
               <span>Marzan Taste</span>
             </Link>
             <p className="mt-4 text-cream/80 max-w-md">
-              Delicie-se com nossa seleção exclusiva de cookies e chocolates artesanais, e ganhe recompensas a cada compra através do nosso programa de fidelidade.
+              Delicie-se com nossa seleção exclusiva de cookies e chocolates artesanais. 
+              Produtos feitos com ingredientes selecionados e muito amor.
             </p>
             <div className="mt-6 flex space-x-4">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-cream hover:text-accent transition-colors">
@@ -36,6 +42,11 @@ const Footer: React.FC = () => {
               <li>
                 <Link to="/" className="text-cream/80 hover:text-accent transition-colors">
                   Início
+                </Link>
+              </li>
+              <li>
+                <Link to="/products" className="text-cream/80 hover:text-accent transition-colors">
+                  Produtos
                 </Link>
               </li>
               <li>
@@ -70,6 +81,40 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
             </ul>
+
+            <div className="mt-8">
+              <h3 className="text-xl font-heading font-semibold mb-4">Formas de Pagamento</h3>
+              
+              {/* Cartões de Crédito/Débito */}
+              <div className="mb-4">
+                <p className="text-sm text-cream/80 mb-2">Cartões de Crédito e Débito</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <SiVisa className="h-8 w-8 text-cream" />
+                  <SiMastercard className="h-8 w-8 text-cream" />
+                  <FaCcDinersClub className="h-8 w-8 text-cream" />
+                  <SiAmericanexpress className="h-8 w-8 text-cream" />
+                  <SiDinersclub className="h-8 w-8 text-cream" />
+                </div>
+              </div>
+
+              {/* Pagamento Digital */}
+              <div className="mb-4">
+                <p className="text-sm text-cream/80 mb-2">Pagamento Digital</p>
+                <div className="flex items-center gap-2">
+                  <SiPix className="h-8 w-8 text-cream" />
+                </div>
+              </div>
+
+              {/* Vale Refeição */}
+              <div>
+                <p className="text-sm text-cream/80 mb-2">Vale Refeição</p>
+                <div className="flex items-center gap-2">
+                  <FaTicketAlt className="h-6 w-6 text-cream" title="Ticket" />
+                  <FaMoneyBillWave className="h-6 w-6 text-cream" title="VR" />
+                  <span className="text-sm text-cream/80">Sodexo, Alelo, VR</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

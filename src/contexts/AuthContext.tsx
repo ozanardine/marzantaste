@@ -13,6 +13,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: any | null }>;
   resendConfirmationEmail: (email: string) => Promise<{ error: any | null }>;
+  checkEmailExists: (email: string) => Promise<{ exists: boolean; error: any | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,47 +64,215 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         logger.error('Erro ao verificar papel do usuário', error);
-        throw error;
+        setIsAdmin(false);
+        return false;
       }
 
       setIsAdmin(data?.is_admin || false);
       return data?.is_admin || false;
     } catch (error) {
       logger.error('Erro inesperado ao verificar papel do usuário', error);
+      setIsAdmin(false);
       return false;
+    }
+  };
+
+  const checkEmailExists = async (email: string) => {
+    try {
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return { 
+          exists: false, 
+          error: new Error('Formato de e-mail inválido') 
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        logger.error('Erro ao verificar e-mail', error);
+        return { exists: false, error };
+      }
+
+      return { exists: !!data, error: null };
+    } catch (error) {
+      logger.error('Erro ao verificar e-mail', error);
+      return { exists: false, error };
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string, phone: string, address?: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      // Input validation
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return { error: new Error('Formato de e-mail inválido') };
+      }
+
+      if (!fullName.trim() || fullName.trim().split(' ').length < 2) {
+        return { error: new Error('Por favor, insira seu nome completo') };
+      }
+
+      const phoneRegex = /^[0-9()+\- ]{8,20}$/;
+      if (!phoneRegex.test(phone.replace(/\s+/g, ''))) {
+        return { error: new Error('Formato de telefone inválido. Use apenas números, parênteses, hífen e espaços.') };
+      }
+
+      // Check if email exists
+      const { exists, error: checkError } = await checkEmailExists(email);
+      if (checkError) {
+        return { error: checkError };
+      }
+      if (exists) {
+        return { error: new Error('Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.') };
+      }
+
+      // Parse address components
+      let addressComponents = {
+        cep: null as string | null,
+        street: null as string | null,
+        number: null as string | null,
+        complement: null as string | null,
+        neighborhood: null as string | null,
+        city: null as string | null,
+        state: null as string | null
+      };
+
+      if (address) {
+        try {
+          const parts = address.split(',').map(part => part.trim());
+          
+          for (const part of parts) {
+            if (!part) continue;
+            
+            if (part.match(/CEP:?\s*\d{5}-?\d{3}/i)) {
+              addressComponents.cep = part.replace(/[^0-9]/g, '');
+            }
+            else if (part.match(/^(Rua|Avenida|Alameda|Praça|R\.|Av\.)/i)) {
+              const numberMatch = part.match(/,?\s*n[º°]?\s*(\d+)/i);
+              if (numberMatch) {
+                addressComponents.street = part.substring(0, numberMatch.index).trim();
+                addressComponents.number = numberMatch[1];
+              } else {
+                addressComponents.street = part;
+              }
+            }
+            else if (part.match(/^(Apto|Apartamento|Casa|Sala|Conjunto|Bloco)/i)) {
+              addressComponents.complement = part;
+            }
+            else if (part.includes('/')) {
+              const [city, state] = part.split('/').map(s => s.trim());
+              addressComponents.city = city;
+              addressComponents.state = state;
+            }
+            else if (!addressComponents.neighborhood) {
+              addressComponents.neighborhood = part;
+            }
+          }
+        } catch (error) {
+          logger.error('Erro ao processar endereço', { error, address });
+        }
+      }
+
+      // Create auth user first
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
             full_name: fullName,
-            phone: phone,
-            address: address || ''
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/login`
         }
       });
 
-      if (error) throw error;
-
-      if (data?.user?.identities?.length === 0) {
-        return { error: new Error('Um e-mail de confirmação foi enviado. Por favor, verifique sua caixa de entrada e confirme seu e-mail antes de fazer login.') };
+      if (authError) {
+        logger.error('Erro ao criar usuário na autenticação', { error: authError, email });
+        return { error: authError };
       }
 
-      return { error: null };
+      if (!authData.user) {
+        return { error: new Error('Falha ao criar usuário') };
+      }
+
+      // Create user profile
+      try {
+        const timestamp = new Date().toISOString();
+        const userProfile = {
+          id: authData.user.id,
+          email,
+          full_name: fullName,
+          phone: phone.trim(),
+          ...addressComponents,
+          created_at: timestamp,
+          updated_at: timestamp,
+          is_admin: false,
+          email_verified: false
+        };
+
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([userProfile]);
+
+        if (profileError) {
+          logger.error('Erro ao criar perfil do usuário', { 
+            error: profileError,
+            profile: userProfile
+          });
+          
+          // Cleanup: delete auth user if profile creation fails
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          
+          if (profileError.code === '23505') {
+            return { error: new Error('Este e-mail já está cadastrado') };
+          }
+          
+          return { error: new Error('Falha ao criar perfil do usuário. Por favor, tente novamente.') };
+        }
+
+        logger.info('Usuário criado com sucesso', { 
+          userId: authData.user.id,
+          email 
+        });
+
+        return { error: null };
+      } catch (error) {
+        logger.error('Erro ao criar perfil do usuário', error);
+        
+        // Cleanup: delete auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        
+        return { error: new Error('Ocorreu um erro ao criar o perfil do usuário. Por favor, tente novamente.') };
+      }
     } catch (error) {
-      logger.error('Erro durante o cadastro', error);
-      return { error };
+      logger.error('Erro inesperado durante o cadastro', error);
+      return { error: new Error('Ocorreu um erro inesperado durante o cadastro. Por favor, tente novamente.') };
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return { error: new Error('Formato de e-mail inválido') };
+      }
+
+      const { exists, error: checkError } = await checkEmailExists(email);
+      if (checkError) {
+        return { error: checkError };
+      }
+      if (!exists) {
+        return { error: new Error('E-mail não cadastrado. Por favor, verifique o e-mail ou crie uma conta.') };
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
         if (error.message.includes('Email not confirmed')) {
@@ -114,10 +283,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (error.message.includes('Invalid login credentials')) {
           return { 
-            error: new Error('E-mail ou senha incorretos. Por favor, verifique suas credenciais.') 
+            error: new Error('Senha incorreta. Por favor, verifique suas credenciais.') 
           };
         }
         throw error;
+      }
+
+      // Update last_login
+      if (data.user) {
+        await supabase
+          .from('users')
+          .update({ 
+            last_login: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.user.id);
       }
       
       return { error: null };
@@ -133,6 +313,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const forgotPassword = async (email: string) => {
     try {
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return { error: new Error('Formato de e-mail inválido') };
+      }
+
+      const { exists, error: checkError } = await checkEmailExists(email);
+      if (checkError) {
+        return { error: checkError };
+      }
+      if (!exists) {
+        return { error: new Error('E-mail não cadastrado. Por favor, verifique o e-mail ou crie uma conta.') };
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
@@ -148,9 +341,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resendConfirmationEmail = async (email: string) => {
     try {
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(email)) {
+        return { error: new Error('Formato de e-mail inválido') };
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`
+        }
       });
       
       if (error) throw error;
@@ -171,7 +372,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signOut,
     forgotPassword,
-    resendConfirmationEmail
+    resendConfirmationEmail,
+    checkEmailExists
   };
 
   return (
