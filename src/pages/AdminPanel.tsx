@@ -5,6 +5,8 @@ import { toast } from 'react-hot-toast';
 import { Search, User, Gift, Plus, Copy, Mail } from 'lucide-react';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { formatDateToBR, getCurrentDateTime } from '../lib/dateUtils';
+import logger from '../lib/logger';
 
 interface User {
   id: string;
@@ -92,7 +94,7 @@ const AdminPanel: React.FC = () => {
       setLoyaltyCodes(loyaltyData || []);
 
     } catch (error) {
-      console.error('Error fetching data:', error);
+      logger.error('Error fetching data:', error);
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
@@ -103,7 +105,7 @@ const AdminPanel: React.FC = () => {
     try {
       const { error } = await supabase
         .from('rewards')
-        .update({ claimed_at: new Date().toISOString() })
+        .update({ claimed_at: getCurrentDateTime() })
         .eq('id', rewardId);
 
       if (error) throw error;
@@ -112,7 +114,7 @@ const AdminPanel: React.FC = () => {
       
       fetchData();
     } catch (error) {
-      console.error('Error updating reward:', error);
+      logger.error('Error updating reward:', error);
       toast.error('Failed to update reward');
     }
   };
@@ -149,7 +151,8 @@ const AdminPanel: React.FC = () => {
           {
             code,
             email: newCodeEmail,
-            created_by: user?.id
+            created_by: user?.id,
+            created_at: getCurrentDateTime()
           }
         ]);
 
@@ -161,7 +164,7 @@ const AdminPanel: React.FC = () => {
       setNewCodeEmail('');
       fetchData();
     } catch (error) {
-      console.error('Error generating code:', error);
+      logger.error('Error generating code:', error);
       toast.error('Falha ao gerar código');
     } finally {
       setIsGeneratingCode(false);
@@ -183,7 +186,7 @@ const AdminPanel: React.FC = () => {
         throw new Error('Failed to send email');
       }
     } catch (error) {
-      console.error('Error sending email:', error);
+      logger.error('Error sending email:', error);
       toast.error('Falha ao enviar e-mail');
     }
   };
@@ -211,14 +214,9 @@ const AdminPanel: React.FC = () => {
       await navigator.clipboard.writeText(code);
       toast.success('Código copiado para a área de transferência!');
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
+      logger.error('Error copying to clipboard:', error);
       toast.error('Falha ao copiar código');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
   };
 
   const filteredUsers = users.filter(user => 
@@ -353,12 +351,12 @@ const AdminPanel: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-primary">
-                              {formatDate(reward.created_at)}
+                              {formatDateToBR(reward.created_at)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-primary">
-                              {reward.expiry_date ? formatDate(reward.expiry_date) : 'N/A'}
+                              {reward.expiry_date ? formatDateToBR(reward.expiry_date) : 'N/A'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -452,7 +450,7 @@ const AdminPanel: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-primary">
-                              {formatDate(user.created_at)}
+                              {formatDateToBR(user.created_at)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -552,7 +550,7 @@ const AdminPanel: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-primary">
-                              {formatDate(code.created_at)}
+                              {formatDateToBR(code.created_at)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
@@ -6,6 +6,9 @@ import { toast } from 'react-hot-toast';
 import ProgressTracker from '../components/ui/ProgressTracker';
 import RewardBadge from '../components/ui/RewardBadge';
 import { CreditCard, Calendar, Clock, PlusCircle, CoffeeIcon, History, Home, Receipt, Filter, User, Lock, Phone, MapPin } from 'lucide-react';
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import { formatDateToBR, getCurrentDateTime } from '../lib/dateUtils';
 import logger from '../lib/logger';
 
 interface Purchase {
@@ -33,8 +36,6 @@ interface UserProfile {
   email?: string;
   full_name: string;
   phone?: string;
-  
-  // Campos detalhados de endereço
   cep?: string;
   street?: string;
   number?: string;
@@ -42,10 +43,6 @@ interface UserProfile {
   neighborhood?: string;
   city?: string;
   state?: string;
-  
-  // Campo legado de endereço 
-  address?: string;
-  
   created_at?: string;
   updated_at?: string;
   is_admin?: boolean;
@@ -59,12 +56,10 @@ const Dashboard: React.FC = () => {
   const [recentPurchases, setRecentPurchases] = useState<Purchase[]>([]);
   const [loyaltyCodes, setLoyaltyCodes] = useState<LoyaltyCode[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'add-purchase' | 'profile'>(() => {
-    // Recuperar a aba ativa do localStorage ou usar 'dashboard' como padrão
     const savedTab = localStorage.getItem('activeTab');
     return (savedTab as 'dashboard' | 'history' | 'add-purchase' | 'profile') || 'dashboard';
   });
   
-  // Salvar a aba ativa no localStorage sempre que ela mudar
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
@@ -81,7 +76,6 @@ const Dashboard: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile>({
     full_name: user?.user_metadata?.full_name || '',
     phone: '',
-    
     cep: '',
     street: '',
     number: '',
@@ -89,8 +83,6 @@ const Dashboard: React.FC = () => {
     neighborhood: '',
     city: '',
     state: '',
-    
-    address: '',
   });
   const [loadingCep, setLoadingCep] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -101,104 +93,6 @@ const Dashboard: React.FC = () => {
   // PurchaseHistory state
   const [filteredPurchases, setFilteredPurchases] = useState<Purchase[]>([]);
   const [filterDate, setFilterDate] = useState<'all' | 'month' | 'year'>('all');
-
-  // Função para formatar telefone
-  const formatPhone = (value: string) => {
-    // Remove tudo que não for número
-    let formatted = value.replace(/\D/g, '');
-    
-    // Limita a 11 dígitos (DDD + 9 dígitos para celular)
-    if (formatted.length > 11) {
-      formatted = formatted.slice(0, 11);
-    }
-    
-    // Formata conforme vai digitando
-    if (formatted.length > 0) {
-      formatted = `(${formatted.slice(0, 2)}${formatted.length > 2 ? ') ' : ''}${formatted.slice(2, 7)}${formatted.length > 7 ? '-' : ''}${formatted.slice(7, 11)}`;
-    }
-    
-    return formatted;
-  };
-
-  // Função para formatar CEP
-  const formatCep = (value: string) => {
-    // Remove tudo que não for número
-    let formatted = value.replace(/\D/g, '');
-    
-    // Limita a 8 dígitos
-    if (formatted.length > 8) {
-      formatted = formatted.slice(0, 8);
-    }
-    
-    // Formata com hífen
-    if (formatted.length > 5) {
-      formatted = `${formatted.slice(0, 5)}-${formatted.slice(5, 8)}`;
-    }
-    
-    return formatted;
-  };
-
-  // Função para buscar endereço pelo CEP
-  const fetchAddressByCep = async (cep: string) => {
-    if (cep.length < 8) return;
-    
-    try {
-      setLoadingCep(true);
-      const response = await fetch(`https://viacep.com.br/ws/${cep.replace(/\D/g, '')}/json/`);
-      const data = await response.json();
-      
-      if (data.erro) {
-        toast.error('CEP não encontrado');
-      } else {
-        setProfile(prev => ({
-          ...prev,
-          street: data.logradouro || prev.street,
-          neighborhood: data.bairro || prev.neighborhood,
-          city: data.localidade || prev.city,
-          state: data.uf || prev.state,
-        }));
-      }
-    } catch (error) {
-      toast.error('Erro ao buscar CEP');
-    } finally {
-      setLoadingCep(false);
-    }
-  };
-
-  // Função para lidar com alteração do CEP
-  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const formatted = formatCep(value);
-    setProfile(prev => ({ ...prev, cep: formatted }));
-    
-    // Busca CEP quando tiver 8 dígitos
-    if (formatted.replace(/\D/g, '').length === 8) {
-      fetchAddressByCep(formatted);
-    }
-  };
-
-  // Função para lidar com alteração do telefone
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const formatted = formatPhone(value);
-    setProfile(prev => ({ ...prev, phone: formatted }));
-  };
-
-  // Função para formatar endereço completo
-  const formatAddress = () => {
-    const { street, number, complement, neighborhood, city, state, cep } = profile;
-    
-    const addressParts = [
-      street,
-      number ? `nº ${number}` : '',
-      complement ? `Complemento: ${complement}` : '',
-      neighborhood,
-      city && state ? `${city}/${state}` : '',
-      cep ? `CEP ${cep}` : ''
-    ].filter(Boolean);
-    
-    return addressParts.join(', ');
-  };
 
   useEffect(() => {
     if (user) {
@@ -255,63 +149,7 @@ const Dashboard: React.FC = () => {
       setLoading(false);
     }
   };
-  
-  // Função para extrair campos de endereço do endereço completo
-  const parseAddress = (fullAddress: string) => {
-    // Tenta extrair CEP
-    const cepMatch = fullAddress.match(/CEP[:\s]*(\d{5}-?\d{3})/i);
-    const cep = cepMatch ? cepMatch[1] : '';
-    
-    // Tenta extrair número
-    const numberMatch = fullAddress.match(/n[ºo°\s]+(\d+)/i);
-    const number = numberMatch ? numberMatch[1] : '';
-    
-    // Tenta extrair complemento de forma mais abrangente
-    let complement = '';
-    
-    // Primeiro tenta extrair texto entre 'Complemento:' e a próxima vírgula ou fim da string
-    const complementPrefixMatch = fullAddress.match(/Complemento:\s*([^,]+(?:,[^,]+)*)/i);
-    
-    if (complementPrefixMatch && complementPrefixMatch[1]) {
-      complement = complementPrefixMatch[1].trim();
-    } else {
-      // Divide o endereço por vírgulas e procura por padrões de complemento em cada parte
-      const addressParts = fullAddress.split(',');
-      const complementParts = [];
-      
-      // Padrões de complemento comuns
-      const complementPatterns = [
-        /apto\.?\s+\w+/i,
-        /apartamento\s+\w+/i,
-        /bloco\s+\w+/i,
-        /casa\s+\w+/i,
-        /sala\s+\w+/i,
-        /conjunto\s+\w+/i,
-        /loja\s+\w+/i,
-        /andar\s+\w+/i,
-        /\d+º\s+andar/i
-      ];
-      
-      // Procura por partes que correspondem a padrões de complemento
-      for (const part of addressParts) {
-        const trimmedPart = part.trim();
-        for (const pattern of complementPatterns) {
-          if (pattern.test(trimmedPart)) {
-            complementParts.push(trimmedPart);
-            break;
-          }
-        }
-      }
-      
-      // Junta todas as partes de complemento encontradas
-      if (complementParts.length > 0) {
-        complement = complementParts.join(', ');
-      }
-    }
-    
-    return { cep, number, complement };
-  };
-  
+
   const fetchProfile = async () => {
     try {
       const { data, error } = await supabase
@@ -321,30 +159,60 @@ const Dashboard: React.FC = () => {
         .single();
       
       if (error) throw error;
-      
-      // Se temos apenas o endereço completo e não os campos individuais
-      if (data.address && (!data.street || !data.city)) {
-        const parsedAddress = parseAddress(data.address);
-        setProfile({
-          ...data,
-          ...parsedAddress
-        });
-      } else {
-        setProfile(data);
-      }
-      
-    } catch (error: any) {
+      setProfile(data);
+    } catch (error) {
       toast.error('Erro ao carregar perfil');
       logger.error('Erro ao carregar perfil', error);
     }
   };
-  
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 0) {
+      value = `(${value.slice(0, 2)}${value.length > 2 ? ') ' : ''}${value.slice(2, 7)}${value.length > 7 ? '-' : ''}${value.slice(7, 11)}`;
+    }
+    setProfile(prev => ({ ...prev, phone: value }));
+  };
+
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 8) value = value.slice(0, 8);
+    if (value.length > 5) {
+      value = `${value.slice(0, 5)}-${value.slice(5, 8)}`;
+    }
+    setProfile(prev => ({ ...prev, cep: value }));
+    
+    if (value.replace(/\D/g, '').length === 8) {
+      try {
+        setLoadingCep(true);
+        const response = await fetch(`https://viacep.com.br/ws/${value.replace(/\D/g, '')}/json/`);
+        const data = await response.json();
+        
+        if (data.erro) {
+          toast.error('CEP não encontrado');
+        } else {
+          setProfile(prev => ({
+            ...prev,
+            street: data.logradouro || prev.street,
+            neighborhood: data.bairro || prev.neighborhood,
+            city: data.localidade || prev.city,
+            state: data.uf || prev.state,
+          }));
+        }
+      } catch (error) {
+        toast.error('Erro ao buscar CEP');
+      } finally {
+        setLoadingCep(false);
+      }
+    }
+  };
+
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProfile(true);
     
     try {
-      // Validar dados
       if (!profile.full_name) {
         throw new Error('O nome é obrigatório');
       }
@@ -352,24 +220,14 @@ const Dashboard: React.FC = () => {
       const { error } = await supabase
         .from('users')
         .update({
-          full_name: profile.full_name,
-          phone: profile.phone,
-          cep: profile.cep,
-          street: profile.street,
-          number: profile.number,
-          complement: profile.complement,
-          neighborhood: profile.neighborhood,
-          city: profile.city,
-          state: profile.state,
-          updated_at: new Date().toISOString()
+          ...profile,
+          updated_at: getCurrentDateTime()
         })
         .eq('id', user.id);
       
       if (error) throw error;
       
       toast.success('Perfil atualizado com sucesso!');
-      
-      // Recarregar os dados do perfil após a atualização
       await fetchProfile();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao atualizar perfil');
@@ -378,7 +236,7 @@ const Dashboard: React.FC = () => {
       setIsSavingProfile(false);
     }
   };
-  
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -418,11 +276,9 @@ const Dashboard: React.FC = () => {
       const purchaseDate = new Date(purchase.purchased_at);
       
       if (filterDate === 'month') {
-        // Compare só o mês e o ano, ignorando o dia e horas
         return purchaseDate.getMonth() === now.getMonth() &&
                purchaseDate.getFullYear() === now.getFullYear();
       } else if (filterDate === 'year') {
-        // Compare só o ano, ignorando o mês, dia e horas
         return purchaseDate.getFullYear() === now.getFullYear();
       }
       
@@ -432,8 +288,77 @@ const Dashboard: React.FC = () => {
     setFilteredPurchases(filtered);
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!loyaltyCode || !purchaseDate) {
+      toast.error('Por favor, preencha todos os campos');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const { data: codeData, error: codeError } = await supabase
+        .from('loyalty_codes')
+        .select('*')
+        .eq('code', loyaltyCode.toUpperCase())
+        .is('used_at', null)
+        .single();
+
+      if (codeError || !codeData) {
+        toast.error('Código inválido ou já utilizado');
+        return;
+      }
+
+      if (codeData.email !== user?.email) {
+        toast.error('Este código não pertence ao seu e-mail');
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('loyalty_codes')
+        .update({
+          used_at: getCurrentDateTime(),
+          used_by: user?.id
+        })
+        .eq('id', codeData.id);
+
+      if (updateError) throw updateError;
+
+      const { error: purchaseError } = await supabase
+        .from('purchases')
+        .insert([
+          {
+            user_id: user?.id,
+            transaction_id: loyaltyCode.toUpperCase(),
+            amount: 0,
+            purchased_at: getCurrentDateTime(),
+            verified: true
+          }
+        ]);
+
+      if (purchaseError) throw purchaseError;
+      
+      setIsSuccess(true);
+      toast.success('Compra registrada com sucesso!');
+      
+      fetchData();
+      
+      setTimeout(() => {
+        setLoyaltyCode('');
+        setPurchaseDate(new Date().toISOString().split('T')[0]);
+        setIsSuccess(false);
+      }, 3000);
+    } catch (error) {
+      logger.error('Erro ao adicionar compra', error);
+      toast.error('Falha ao adicionar compra');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleRewardComplete = async () => {
-    // Check if a reward should be created
     if (purchases.length > 0 && purchases.length % 10 === 0) {
       const hasExistingReward = rewards.some(r => r.claimed_at === null);
       
@@ -448,7 +373,8 @@ const Dashboard: React.FC = () => {
               {
                 user_id: user?.id,
                 reward_type: 'Caixa Premium de Cookies',
-                expiry_date: expiryDate.toISOString(), // ISO string sem manipulação adicional
+                expiry_date: getCurrentDateTime(),
+                created_at: getCurrentDateTime()
               }
             ]);
 
@@ -459,10 +385,9 @@ const Dashboard: React.FC = () => {
             duration: 5000
           });
           
-          // Refresh rewards
           fetchData();
         } catch (error) {
-          logger.error('Erro ao criar recompensa para usuário', error);
+          logger.error('Erro ao criar recompensa', error);
           toast.error('Falha ao criar sua recompensa');
         }
       }
@@ -470,103 +395,13 @@ const Dashboard: React.FC = () => {
   };
 
   const getRewardStatus = () => {
-    if (rewards.length === 0) {
-      return 'pending';
-    }
-    
+    if (rewards.length === 0) return 'pending';
     const activeReward = rewards.find(r => r.claimed_at === null);
-    if (activeReward) {
-      return 'available';
-    }
-    
-    return 'claimed';
+    return activeReward ? 'available' : 'claimed';
   };
 
   const getActiveReward = () => {
     return rewards.find(r => r.claimed_at === null);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
-  };
-  
-  // AddPurchase functionality
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!loyaltyCode || !purchaseDate) {
-      toast.error('Por favor, preencha todos os campos');
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      // Check if code exists and is unused
-      const { data: codeData, error: codeError } = await supabase
-        .from('loyalty_codes')
-        .select('*')
-        .eq('code', loyaltyCode.toUpperCase())
-        .is('used_at', null)
-        .single();
-
-      if (codeError || !codeData) {
-        toast.error('Código inválido ou já utilizado');
-        return;
-      }
-
-      // Verify if code belongs to user's email
-      if (codeData.email !== user?.email) {
-        toast.error('Este código não pertence ao seu e-mail');
-        return;
-      }
-
-      // Mark code as used (exatamente como no AdminPanel.tsx)
-      const { error: updateError } = await supabase
-        .from('loyalty_codes')
-        .update({
-          used_at: new Date().toISOString(),
-          used_by: user?.id
-        })
-        .eq('id', codeData.id);
-
-      if (updateError) throw updateError;
-
-      // Create purchase record (preservando data selecionada pelo usuário)
-      const { error: purchaseError } = await supabase
-        .from('purchases')
-        .insert([
-          {
-            user_id: user?.id,
-            transaction_id: loyaltyCode.toUpperCase(),
-            amount: 0, // Amount not needed for loyalty codes
-            purchased_at: new Date(purchaseDate).toISOString(), // Sem manipulação de horas
-            verified: true // Auto-verified since it's a valid loyalty code
-          }
-        ]);
-
-      if (purchaseError) throw purchaseError;
-      
-      // Show success state
-      setIsSuccess(true);
-      toast.success('Compra registrada com sucesso!');
-      
-      // Refresh data
-      fetchData();
-      
-      // Reset form after delay
-      setTimeout(() => {
-        setLoyaltyCode('');
-        setPurchaseDate(new Date().toISOString().split('T')[0]);
-        setIsSuccess(false);
-      }, 3000);
-    } catch (error) {
-      logger.error('Erro ao adicionar compra com código de fidelidade', error);
-      toast.error('Falha ao adicionar compra');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   if (loading) {
@@ -582,14 +417,13 @@ const Dashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header className="mb-6 sm:mb-10">
           <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold text-primary">
-            Bem-vindo(a) de volta, {user?.user_metadata?.full_name || 'Amigo(a)'}!
+            Bem-vindo(a) de volta, {profile.full_name || 'Amigo(a)'}!
           </h1>
           <p className="text-primary/70 mt-2">
             Acompanhe suas compras e recompensas em um só lugar.
           </p>
         </header>
         
-        {/* Tabs Navigation */}
         <div className="mb-8 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
             <button
@@ -642,12 +476,9 @@ const Dashboard: React.FC = () => {
           </nav>
         </div>
 
-        {/* Dashboard Tab */}
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main content - left 2/3 */}
             <div className="lg:col-span-2 space-y-8">
-              {/* Progress tracker */}
               <div className="card p-6">
                 <ProgressTracker 
                   purchaseCount={purchases.length} 
@@ -665,7 +496,6 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
               
-              {/* Recent transactions */}
               <div className="card p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-heading font-semibold text-primary">
@@ -692,7 +522,7 @@ const Dashboard: React.FC = () => {
                               Código: {purchase.transaction_id}
                             </p>
                             <p className="text-sm text-primary/60">
-                              {formatDate(purchase.purchased_at)}
+                              {formatDateToBR(purchase.purchased_at)}
                             </p>
                           </div>
                         </div>
@@ -714,9 +544,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            {/* Sidebar - right 1/3 */}
             <div className="space-y-8">
-              {/* Reward status */}
               <div className="card p-6">
                 <h2 className="text-xl font-heading font-semibold text-primary mb-4">
                   Suas Recompensas
@@ -740,7 +568,6 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
               
-              {/* Stats card */}
               <div className="card p-6">
                 <h2 className="text-xl font-heading font-semibold text-primary mb-4">
                   Suas Estatísticas
@@ -778,14 +605,13 @@ const Dashboard: React.FC = () => {
                         <span className="text-primary/80">Membro Desde</span>
                       </div>
                       <span className="font-medium text-primary">
-                        {formatDate(purchases[purchases.length - 1].purchased_at)}
+                        {formatDateToBR(purchases[purchases.length - 1].purchased_at)}
                       </span>
                     </div>
                   )}
                 </div>
               </div>
               
-              {/* Quick actions */}
               <div className="card p-6">
                 <h2 className="text-xl font-heading font-semibold text-primary mb-4">
                   Ações Rápidas
@@ -810,7 +636,6 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* History Tab */}
         {activeTab === 'history' && (
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
@@ -867,7 +692,7 @@ const Dashboard: React.FC = () => {
                         <tr key={purchase.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-primary">
-                              {formatDate(purchase.purchased_at)}
+                              {formatDateToBR(purchase.purchased_at)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -919,7 +744,6 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Add Purchase Tab */}
         {activeTab === 'add-purchase' && (
           <div className="max-w-3xl mx-auto">
             <div className="card p-8">
@@ -949,6 +773,7 @@ const Dashboard: React.FC = () => {
                     >
                       Adicionar Outra Compra
                     </button>
+                    
                     <button
                       onClick={() => setActiveTab('dashboard')}
                       className="btn-outline"
@@ -1029,7 +854,6 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Profile Tab */}
         {activeTab === 'profile' && (
           <div className="max-w-4xl">
             <div className="mb-10">
@@ -1042,7 +866,6 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              {/* Informações Pessoais */}
               <div className="card p-6">
                 <h3 className="text-xl font-heading font-semibold text-primary mb-6 flex items-center">
                   <User className="h-5 w-5 mr-2 text-caramel" />
@@ -1238,7 +1061,6 @@ const Dashboard: React.FC = () => {
                 </form>
               </div>
               
-              {/* Segurança */}
               <div className="card p-6">
                 <h3 className="text-xl font-heading font-semibold text-primary mb-6 flex items-center">
                   <Lock className="h-5 w-5 mr-2 text-caramel" />

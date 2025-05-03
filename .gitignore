@@ -28,3 +28,6 @@ supabase/migrations/add_phone_number_to_users.sql
 supabase/migrations/fix_phone_column.sql
 supabase/migrations/fix_database_references.sql
 migration.sql
+supabase/templates/change-email.html
+supabase/templates/confirmation.html
+supabase/templates/recovery.html

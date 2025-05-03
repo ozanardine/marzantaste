@@ -9,9 +9,10 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   signUp: (email: string, password: string, fullName: string, phone: string, address?: string) => Promise<{ error: any | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: any | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: any | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: any | null }>;
+  resendConfirmationEmail: (email: string) => Promise<{ error: any | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,12 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Get session from Supabase and set state
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Check if user is admin
       if (session?.user) {
         checkUserRole(session.user.id);
       }
@@ -36,13 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check if user is admin
         if (session?.user) {
           checkUserRole(session.user.id);
         }
@@ -56,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Check if user is admin
   const checkUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -78,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Sign up with email and password
   const signUp = async (email: string, password: string, fullName: string, phone: string, address?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({ 
@@ -93,42 +88,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      // O perfil do usuário é criado automaticamente pelo trigger handle_new_user
-      // Não precisamos inserir manualmente na tabela users
+      if (error) throw error;
 
-      return { error };
+      if (data?.user?.identities?.length === 0) {
+        return { error: new Error('Um e-mail de confirmação foi enviado. Por favor, verifique sua caixa de entrada e confirme seu e-mail antes de fazer login.') };
+      }
+
+      return { error: null };
     } catch (error) {
       logger.error('Erro durante o cadastro', error);
       return { error };
     }
   };
 
-  // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      return { success: true, error: null };
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        if (error.message.includes('Email not confirmed')) {
+          return { 
+            error: new Error('Por favor, confirme seu e-mail antes de fazer login. Caso não tenha recebido o e-mail de confirmação, você pode solicitar um novo.'),
+            needsEmailConfirmation: true
+          };
+        }
+        if (error.message.includes('Invalid login credentials')) {
+          return { 
+            error: new Error('E-mail ou senha incorretos. Por favor, verifique suas credenciais.') 
+          };
+        }
+        throw error;
+      }
+      
+      return { error: null };
     } catch (error) {
       logger.error('Erro durante o login', error);
-      return { success: false, error: error as Error };
+      return { error };
     }
   };
 
-  // Sign out
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  // Forgot password
   const forgotPassword = async (email: string) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+      
       if (error) throw error;
-      return { success: true, error: null };
+      
+      return { error: null };
     } catch (error) {
       logger.error('Erro durante redefinição de senha', error);
-      return { success: false, error: error as Error };
+      return { error };
+    }
+  };
+
+  const resendConfirmationEmail = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+      
+      if (error) throw error;
+      
+      return { error: null };
+    } catch (error) {
+      logger.error('Erro ao reenviar e-mail de confirmação', error);
+      return { error };
     }
   };
 
@@ -140,7 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signOut,
-    forgotPassword
+    forgotPassword,
+    resendConfirmationEmail
   };
 
   return (

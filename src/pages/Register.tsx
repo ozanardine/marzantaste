@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Lock, Mail, User, Phone, MapPin, Home } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { Lock, Mail, User, Phone, MapPin, Home, Eye, EyeOff, Check, X } from 'lucide-react';
 
 const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [cep, setCep] = useState('');
@@ -23,39 +24,56 @@ const Register: React.FC = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
+  // Password validation states
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    number: false,
+    special: false,
+    uppercase: false,
+    lowercase: false,
+    match: false
+  });
+
+  const validatePassword = (password: string, confirmPassword: string = '') => {
+    setPasswordValidation({
+      length: password.length >= 8,
+      number: /\d/.test(password),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      uppercase: /[A-Z]/.test(password),
+      lowercase: /[a-z]/.test(password),
+      match: password === confirmPassword && password !== ''
+    });
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+    validatePassword(newPassword, confirmPassword);
+  };
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newConfirmPassword = e.target.value;
+    setConfirmPassword(newConfirmPassword);
+    validatePassword(password, newConfirmPassword);
+  };
+
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove tudo que não for número
     let value = e.target.value.replace(/\D/g, '');
-    
-    // Limita a 11 dígitos (DDD + 9 dígitos para celular)
-    if (value.length > 11) {
-      value = value.slice(0, 11);
-    }
-    
-    // Formata conforme vai digitando
+    if (value.length > 11) value = value.slice(0, 11);
     if (value.length > 0) {
       value = `(${value.slice(0, 2)}${value.length > 2 ? ') ' : ''}${value.slice(2, 7)}${value.length > 7 ? '-' : ''}${value.slice(7, 11)}`;
     }
-    
     setPhone(value);
   };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
-    
-    // Limita a 8 dígitos
-    if (value.length > 8) {
-      value = value.slice(0, 8);
-    }
-    
-    // Formata conforme vai digitando
+    if (value.length > 8) value = value.slice(0, 8);
     if (value.length > 5) {
       value = `${value.slice(0, 5)}-${value.slice(5, 8)}`;
     }
-    
     setCep(value);
     
-    // Busca CEP quando tiver 8 dígitos
     if (value.replace(/\D/g, '').length === 8) {
       try {
         setLoadingCep(true);
@@ -69,7 +87,6 @@ const Register: React.FC = () => {
           setNeighborhood(data.bairro || '');
           setCity(data.localidade || '');
           setState(data.uf || '');
-          // Foca no campo de número após preencher o endereço
           document.getElementById('number')?.focus();
         }
       } catch (error) {
@@ -81,16 +98,16 @@ const Register: React.FC = () => {
   };
 
   const formatAddress = () => {
-    const address = [
+    const addressParts = [
       street,
       number ? `nº ${number}` : '',
       complement ? `${complement}` : '',
       neighborhood,
-      city ? `${city}/${state}` : '',
+      city && state ? `${city}/${state}` : '',
       cep ? `CEP: ${cep}` : ''
-    ].filter(Boolean).join(', ');
+    ].filter(Boolean);
     
-    return address;
+    return addressParts.join(', ');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,23 +118,16 @@ const Register: React.FC = () => {
       return;
     }
     
-    if (password !== confirmPassword) {
-      toast.error('As senhas não coincidem');
+    if (!Object.values(passwordValidation).every(Boolean)) {
+      toast.error('Por favor, atenda a todos os requisitos de senha');
       return;
     }
     
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-    
-    // Valida o CEP se foi preenchido
     if (cep && cep.replace(/\D/g, '').length !== 8) {
       toast.error('CEP inválido');
       return;
     }
     
-    // Valida o telefone (deve ter pelo menos 10 dígitos - DDD + número)
     if (phone.replace(/\D/g, '').length < 10) {
       toast.error('Telefone inválido');
       return;
@@ -126,34 +136,27 @@ const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: phone,
-            cep: cep,
-            street: street,
-            number: number,
-            complement: complement,
-            neighborhood: neighborhood,
-            city: city,
-            state: state
-          }
-        }
-      });
+      const { error } = await signUp(email, password, fullName, phone, formatAddress());
       
-      if (error) throw error;
-      
-      toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
-      navigate('/login');
+      if (error) {
+        toast.error(error.message || 'Erro ao criar conta');
+      } else {
+        toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
+        navigate('/login');
+      }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar conta');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const ValidationItem = ({ valid, text }: { valid: boolean; text: string }) => (
+    <div className={`flex items-center gap-2 text-sm ${valid ? 'text-success' : 'text-primary/60'}`}>
+      {valid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+      {text}
+    </div>
+  );
   
   return (
     <div className="min-h-[calc(100vh-64px)] bg-cream flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -206,7 +209,7 @@ const Register: React.FC = () => {
                   value={phone}
                   onChange={handlePhoneChange}
                   className="input pl-10"
-                  placeholder="(11) 99999-9999"
+                  placeholder="(00) 00000-0000"
                   maxLength={16}
                 />
               </div>
@@ -374,17 +377,25 @@ const Register: React.FC = () => {
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input pl-10"
+                    onChange={handlePasswordChange}
+                    className="input pl-10 pr-10"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-primary/40 hover:text-primary transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
-                <p className="mt-1 text-xs text-primary/60">
-                  A senha deve ter pelo menos 6 caracteres
-                </p>
               </div>
               
               <div>
@@ -398,14 +409,35 @@ const Register: React.FC = () => {
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input pl-10"
+                    onChange={handleConfirmPasswordChange}
+                    className="input pl-10 pr-10"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-primary/40 hover:text-primary transition-colors"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                <h4 className="text-sm font-medium text-primary mb-2">Requisitos de senha:</h4>
+                <ValidationItem valid={passwordValidation.length} text="Mínimo de 8 caracteres" />
+                <ValidationItem valid={passwordValidation.lowercase} text="Pelo menos uma letra minúscula" />
+                <ValidationItem valid={passwordValidation.uppercase} text="Pelo menos uma letra maiúscula" />
+                <ValidationItem valid={passwordValidation.number} text="Pelo menos um número" />
+                <ValidationItem valid={passwordValidation.special} text="Pelo menos um caractere especial" />
+                <ValidationItem valid={passwordValidation.match} text="As senhas coincidem" />
               </div>
             </div>
           </div>
