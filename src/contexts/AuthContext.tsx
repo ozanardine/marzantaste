@@ -8,12 +8,23 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
-  signUp: (email: string, password: string, fullName: string, phone: string, address?: string) => Promise<{ error: any | null }>;
+  signUp: (email: string, password: string, fullName: string, phone: string, addressData: AddressData) => Promise<{ error: any | null }>;
   signIn: (email: string, password: string) => Promise<{ error: any | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ error: any | null }>;
   resendConfirmationEmail: (email: string) => Promise<{ error: any | null }>;
   checkEmailExists: (email: string) => Promise<{ exists: boolean; error: any | null }>;
+}
+
+// Interface para os dados de endereço
+interface AddressData {
+  cep?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -87,26 +98,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      // Verificar diretamente em auth.users ao invés de public.users
-      const { data, error } = await supabase.auth.admin.listUsers({
-        filters: {
-          email: email
-        }
-      });
+      // Verificar usando a tabela users
+      const { data, error } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         logger.error('Erro ao verificar e-mail', error);
         return { exists: false, error };
       }
 
-      return { exists: data && data.users && data.users.length > 0, error: null };
+      return { exists: !!data, error: null };
     } catch (error) {
       logger.error('Erro ao verificar e-mail', error);
       return { exists: false, error };
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, phone: string, address?: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone: string, addressData: AddressData) => {
     try {
       // Input validation
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
@@ -123,53 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Formato de telefone inválido. Use apenas números, parênteses, hífen e espaços.') };
       }
 
-      // Parse address components
-      let addressComponents = {
-        cep: null as string | null,
-        street: null as string | null,
-        number: null as string | null,
-        complement: null as string | null,
-        neighborhood: null as string | null,
-        city: null as string | null,
-        state: null as string | null
-      };
-
-      if (address) {
-        try {
-          const parts = address.split(',').map(part => part.trim());
-          
-          for (const part of parts) {
-            if (!part) continue;
-            
-            if (part.match(/CEP:?\s*\d{5}-?\d{3}/i)) {
-              addressComponents.cep = part.replace(/[^0-9]/g, '');
-            }
-            else if (part.match(/^(Rua|Avenida|Alameda|Praça|R\.|Av\.)/i)) {
-              const numberMatch = part.match(/,?\s*n[º°]?\s*(\d+)/i);
-              if (numberMatch) {
-                addressComponents.street = part.substring(0, numberMatch.index).trim();
-                addressComponents.number = numberMatch[1];
-              } else {
-                addressComponents.street = part;
-              }
-            }
-            else if (part.match(/^(Apto|Apartamento|Casa|Sala|Conjunto|Bloco)/i)) {
-              addressComponents.complement = part;
-            }
-            else if (part.includes('/')) {
-              const [city, state] = part.split('/').map(s => s.trim());
-              addressComponents.city = city;
-              addressComponents.state = state;
-            }
-            else if (!addressComponents.neighborhood) {
-              addressComponents.neighborhood = part;
-            }
-          }
-        } catch (error) {
-          logger.error('Erro ao processar endereço', { error, address });
-        }
-      }
-
       // Create auth user with all metadata fields
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
@@ -178,13 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: {
             full_name: fullName,
             phone: phone.trim(),
-            cep: addressComponents.cep,
-            street: addressComponents.street,
-            number: addressComponents.number,
-            complement: addressComponents.complement,
-            neighborhood: addressComponents.neighborhood,
-            city: addressComponents.city,
-            state: addressComponents.state
+            cep: addressData.cep || null,
+            street: addressData.street || null,
+            number: addressData.number || null,
+            complement: addressData.complement || null,
+            neighborhood: addressData.neighborhood || null,
+            city: addressData.city || null,
+            state: addressData.state || null
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -199,7 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Falha ao criar usuário') };
       }
 
-      // Don't create a separate profile - let the trigger handle it
       logger.info('Usuário criado com sucesso', { 
         userId: authData.user.id,
         email 
@@ -219,9 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Formato de e-mail inválido') };
       }
 
-      // Remover a verificação prévia de existência do email
-      // E fazer login diretamente
-
+      // Login direto com Supabase
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -275,8 +236,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!emailRegex.test(email)) {
         return { error: new Error('Formato de e-mail inválido') };
       }
-
-      // Remover verificação de existência do email
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`

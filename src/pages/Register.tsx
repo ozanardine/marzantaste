@@ -97,17 +97,16 @@ const Register: React.FC = () => {
     }
   };
 
-  const formatAddress = () => {
-    const addressParts = [
+  const getAddressData = () => {
+    return {
+      cep: cep.replace(/\D/g, ''),
       street,
-      number ? `nº ${number}` : '',
-      complement ? `${complement}` : '',
+      number,
+      complement,
       neighborhood,
-      city && state ? `${city}/${state}` : '',
-      cep ? `CEP: ${cep}` : ''
-    ].filter(Boolean);
-    
-    return addressParts.join(', ');
+      city,
+      state
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,10 +135,21 @@ const Register: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(email, password, fullName, phone, formatAddress());
+      // Enviar dados de endereço utilizando o novo formato de objeto
+      const addressData = getAddressData();
+      
+      // Log para debug
+      console.log('Enviando dados de cadastro:', {
+        email,
+        fullName,
+        phone,
+        addressData
+      });
+      
+      const { error } = await signUp(email, password, fullName, phone, addressData);
       
       if (error) {
-        if (error.message.includes('already registered')) {
+        if (error.message?.includes('already registered') || error.message?.includes('já está')) {
           toast.error('Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.');
         } else {
           toast.error(error.message || 'Erro ao criar conta');
@@ -150,6 +160,7 @@ const Register: React.FC = () => {
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar conta');
+      console.error('Erro durante cadastro:', error);
     } finally {
       setIsLoading(false);
     }
