@@ -87,18 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('email')
-        .eq('email', email)
-        .maybeSingle();
+      // Verificar diretamente em auth.users ao invés de public.users
+      const { data, error } = await supabase.auth.admin.listUsers({
+        filters: {
+          email: email
+        }
+      });
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         logger.error('Erro ao verificar e-mail', error);
         return { exists: false, error };
       }
 
-      return { exists: !!data, error: null };
+      return { exists: data && data.users && data.users.length > 0, error: null };
     } catch (error) {
       logger.error('Erro ao verificar e-mail', error);
       return { exists: false, error };
@@ -120,15 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const phoneRegex = /^[0-9()+\- ]{8,20}$/;
       if (!phoneRegex.test(phone.replace(/\s+/g, ''))) {
         return { error: new Error('Formato de telefone inválido. Use apenas números, parênteses, hífen e espaços.') };
-      }
-
-      // Check if email exists
-      const { exists, error: checkError } = await checkEmailExists(email);
-      if (checkError) {
-        return { error: checkError };
-      }
-      if (exists) {
-        return { error: new Error('Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.') };
       }
 
       // Parse address components
@@ -178,13 +170,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Create auth user first
+      // Create auth user with all metadata fields
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
+            phone: phone.trim(),
+            cep: addressComponents.cep,
+            street: addressComponents.street,
+            number: addressComponents.number,
+            complement: addressComponents.complement,
+            neighborhood: addressComponents.neighborhood,
+            city: addressComponents.city,
+            state: addressComponents.state
           },
           emailRedirectTo: `${window.location.origin}/login`
         }
@@ -199,55 +199,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Falha ao criar usuário') };
       }
 
-      // Create user profile
-      try {
-        const timestamp = new Date().toISOString();
-        const userProfile = {
-          id: authData.user.id,
-          email,
-          full_name: fullName,
-          phone: phone.trim(),
-          ...addressComponents,
-          created_at: timestamp,
-          updated_at: timestamp,
-          is_admin: false,
-          email_verified: false
-        };
+      // Don't create a separate profile - let the trigger handle it
+      logger.info('Usuário criado com sucesso', { 
+        userId: authData.user.id,
+        email 
+      });
 
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert([userProfile]);
-
-        if (profileError) {
-          logger.error('Erro ao criar perfil do usuário', { 
-            error: profileError,
-            profile: userProfile
-          });
-          
-          // Cleanup: delete auth user if profile creation fails
-          await supabase.auth.admin.deleteUser(authData.user.id);
-          
-          if (profileError.code === '23505') {
-            return { error: new Error('Este e-mail já está cadastrado') };
-          }
-          
-          return { error: new Error('Falha ao criar perfil do usuário. Por favor, tente novamente.') };
-        }
-
-        logger.info('Usuário criado com sucesso', { 
-          userId: authData.user.id,
-          email 
-        });
-
-        return { error: null };
-      } catch (error) {
-        logger.error('Erro ao criar perfil do usuário', error);
-        
-        // Cleanup: delete auth user if profile creation fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        
-        return { error: new Error('Ocorreu um erro ao criar o perfil do usuário. Por favor, tente novamente.') };
-      }
+      return { error: null };
     } catch (error) {
       logger.error('Erro inesperado durante o cadastro', error);
       return { error: new Error('Ocorreu um erro inesperado durante o cadastro. Por favor, tente novamente.') };
@@ -261,13 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Formato de e-mail inválido') };
       }
 
-      const { exists, error: checkError } = await checkEmailExists(email);
-      if (checkError) {
-        return { error: checkError };
-      }
-      if (!exists) {
-        return { error: new Error('E-mail não cadastrado. Por favor, verifique o e-mail ou crie uma conta.') };
-      }
+      // Remover a verificação prévia de existência do email
+      // E fazer login diretamente
 
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
@@ -283,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (error.message.includes('Invalid login credentials')) {
           return { 
-            error: new Error('Senha incorreta. Por favor, verifique suas credenciais.') 
+            error: new Error('Credenciais inválidas. Por favor, verifique seu e-mail e senha.') 
           };
         }
         throw error;
@@ -291,13 +244,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Update last_login
       if (data.user) {
-        await supabase
-          .from('users')
-          .update({ 
-            last_login: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', data.user.id);
+        try {
+          await supabase
+            .from('users')
+            .update({ 
+              last_login: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+        } catch (updateError) {
+          // Registrar o erro, mas não falhar o login
+          logger.error('Erro ao atualizar último login', updateError);
+        }
       }
       
       return { error: null };
@@ -318,14 +276,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error('Formato de e-mail inválido') };
       }
 
-      const { exists, error: checkError } = await checkEmailExists(email);
-      if (checkError) {
-        return { error: checkError };
-      }
-      if (!exists) {
-        return { error: new Error('E-mail não cadastrado. Por favor, verifique o e-mail ou crie uma conta.') };
-      }
-
+      // Remover verificação de existência do email
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });

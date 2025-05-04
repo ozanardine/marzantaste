@@ -139,7 +139,11 @@ const Register: React.FC = () => {
       const { error } = await signUp(email, password, fullName, phone, formatAddress());
       
       if (error) {
-        toast.error(error.message || 'Erro ao criar conta');
+        if (error.message.includes('already registered')) {
+          toast.error('Este e-mail já está cadastrado. Por favor, use outro e-mail ou faça login.');
+        } else {
+          toast.error(error.message || 'Erro ao criar conta');
+        }
       } else {
         toast.success('Conta criada com sucesso! Verifique seu email para confirmar.');
         navigate('/login');

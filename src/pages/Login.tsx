@@ -27,7 +27,7 @@ const Login: React.FC = () => {
       const { error } = await resendConfirmationEmail(email);
       
       if (error) {
-        toast.error('Erro ao reenviar e-mail de confirmação');
+        toast.error('Erro ao reenviar e-mail de confirmação: ' + error.message);
       } else {
         toast.success('E-mail de confirmação reenviado com sucesso! Por favor, verifique sua caixa de entrada.');
       }
@@ -51,7 +51,7 @@ const Login: React.FC = () => {
       const { error } = await forgotPassword(forgotPasswordEmail);
       
       if (error) {
-        toast.error('Erro ao enviar e-mail de recuperação de senha');
+        toast.error('Erro ao enviar e-mail de recuperação de senha: ' + error.message);
       } else {
         toast.success('E-mail de recuperação de senha enviado com sucesso! Por favor, verifique sua caixa de entrada.');
         setIsForgotPassword(false);
@@ -110,9 +110,9 @@ const Login: React.FC = () => {
         toast.success('Login realizado com sucesso');
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao fazer login:', error);
-      toast.error('Ocorreu um erro inesperado');
+      toast.error('Ocorreu um erro inesperado: ' + (error?.message || ''));
     } finally {
       setIsLoading(false);
     }
